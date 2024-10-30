@@ -3,15 +3,49 @@ const Redis = require('ioredis');
 const cors = require('cors');
 const path = require('path');
 
+
+// apiVersion: apps/v1
+// kind: Deployment
+// metadata:
+//   name: stix-visualizer
+// spec:
+//   replicas: 1
+//   selector:
+//     matchLabels:
+//       app: stix-visualizer
+//   template:
+//     metadata:
+//       labels:
+//         app: stix-visualizer
+//     spec:
+//       containers:
+//       - name: stix-visualizer
+//         image: k8sstormcenter/cti-stix-visualizer:0.0.1
+//         ports:
+//         - containerPort: 3000
+//         env:
+//         - name: PORT
+//           value: "3000"
+//         - name: REDIS_HOST
+//           value: "your-redis-host"
+//         - name: REDIS_PORT
+//           value: "51598"
+//         - name: REDIS_KEY_PREFIX
+//           value: "tetrastix"
+
 const app = express();
-const port = 3000;
 
+//const redisPort = 51598;
+//const redisKeyPrefix = 'tetrastix';
 
-const redisPort = 51598;
-const redisKeyPrefix = 'tetrastix';
+const port = process.env.PORT || 3000; // Default to 3000 if not set
 
+const redisHost = process.env.REDIS_HOST || '127.0.0.1';
+const redisPort = process.env.REDIS_PORT || 6379; // Default Redis port
+const redisKeyPrefix = process.env.REDIS_KEY_PREFIX || 'tetrastix';
 
-const redisClient = new Redis(redisPort);
+const redisClient = new Redis({ host: redisHost, port: redisPort });
+
 
 app.use(cors());
 app.use(express.static(path.join(__dirname)));
