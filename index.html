@@ -9,14 +9,9 @@
   </head>
 
   <body>
-    <div id="top-header-bar">
-      <h1>
-        <span id="header">STIX Visualizer</span><span id="chosen-files"></span>
-      </h1>
-      <a href="https://github.com/oasis-open/cti-stix-visualization/">
-        <img src="GitHub-Mark-64px.png" alt="View source on GitHub" width="32" height="32">
-      </a>
-    </div>
+    <h1>STIX Visualizer</h1>
+    <select id="redisKeys"></select> <button id="visualizeButton">Visualize</button>
+    <div id="stixVisualization"></div>
 
     <div id="uploader">
       <p>Drop some STIX 2.x here!</p>
@@ -60,5 +55,6 @@
         </table>
       </div>
     </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ioredis/4.27.4/ioredis.min.js"></script>
   </body>
 </html>

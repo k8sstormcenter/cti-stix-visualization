@@ -18,6 +18,58 @@ require.config({
 });
 
 require(["domReady!", "stix2viz/stix2viz/stix2viz"], function (document, stix2viz) {
+    const backendUrl = 'http://localhost:3000';
+
+    // Function to fetch Redis keys from the backend
+    async function getRedisKeys() {
+        try {
+            const response = await fetch(`${backendUrl}/redis-keys`);
+            const keys = await response.json();
+            return keys;
+        } catch (err) {
+            console.error("Error fetching Redis keys:", err);
+            throw err;
+        }
+    }
+
+    // Function to fetch STIX bundle from the backend
+    async function getStixBundle(key) {
+        try {
+            const response = await fetch(`${backendUrl}/stix-bundle/${key}`);
+            const data = await response.json();
+            return data;
+        } catch (err) {
+            console.error("Error fetching STIX bundle:", err);
+            throw err;
+        }
+    }
+
+
+
+    // Populate the select element with Redis keys
+    getRedisKeys()
+        .then(keys => {
+            const selectElement = document.getElementById('redisKeys');
+            keys.forEach(key => {
+                const option = document.createElement('option');
+                option.value = key;
+                option.text = key;
+                selectElement.add(option);
+            });
+        })
+        .catch(err => console.error("Error fetching Redis keys:", err));
+
+    // Event listener for the visualize button
+    document.getElementById('visualizeButton').addEventListener('click', async () => {
+        const selectedKey = document.getElementById('redisKeys').value;
+        const stixBundle = await getStixBundle(selectedKey);
+
+        const visualizer = new stix2viz.Viz(document.getElementById('stixVisualization'));
+        visualizer.vizStix(stixBundle);
+    });
+
+
+
 
 
     // Init some stuff
