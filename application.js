@@ -23,6 +23,7 @@ require(["domReady!", "stix2viz/stix2viz/stix2viz"], function (document, stix2vi
     // Function to fetch Redis keys from the backend
     async function getRedisKeys() {
         try {
+            //const encodedKey = encodeURIComponent(key);
             const response = await fetch(`${backendUrl}/redis-keys`);
             const keys = await response.json();
             return keys;
@@ -63,9 +64,11 @@ require(["domReady!", "stix2viz/stix2viz/stix2viz"], function (document, stix2vi
     document.getElementById('visualizeButton').addEventListener('click', async () => {
         const selectedKey = document.getElementById('redisKeys').value;
         const stixBundle = await getStixBundle(selectedKey);
-
-        const visualizer = new stix2viz.Viz(document.getElementById('stixVisualization'));
-        visualizer.vizStix(stixBundle);
+        console.log("Visualizing STIX bundle:", stixBundle);
+        //const visualizer = new stix2viz.Viz(document.getElementById('stixVisualization'));
+        let customConfig = document.getElementById('paste-area-custom-config').value;
+        vizStixWrapper(stixBundle, customConfig);
+        linkifyHeader();
     });
 
 
