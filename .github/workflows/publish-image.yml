@@ -42,7 +42,6 @@ jobs:
 
       - name: Build an image from Dockerfile
         run: |
-          cd pattern_matcher
           docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:0.0.1  .
 
           
