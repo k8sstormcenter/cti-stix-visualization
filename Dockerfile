@@ -1,5 +1,5 @@
 # Use a Node.js base image
-FROM node:18
+FROM node:22.0.0-alpine3.19
 
 # Set the working directory inside the container
 WORKDIR /app
@@ -7,9 +7,8 @@ WORKDIR /app
 # Copy the application files
 COPY . /app
 
-# Install the Redis client library
 # Install the necessary dependencies
-RUN npm install ioredis express cors path
+RUN npm install package.json
 
 # Expose the port for the server
 EXPOSE 3000
