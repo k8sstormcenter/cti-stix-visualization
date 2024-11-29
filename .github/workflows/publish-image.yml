@@ -2,7 +2,7 @@ name: Build and push STIX-Visualizer image
 on:
   push:
     branches:
-      - main 
+      - master 
   pull_request:
 
 env:
