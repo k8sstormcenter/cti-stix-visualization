@@ -59,7 +59,7 @@ jobs:
           trivy image --format cyclonedx --output sbom.json ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:0.0.1
 
       - name: Upload SBOM
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: sbom
           path: sbom.json
