@@ -42,11 +42,30 @@ jobs:
 
       - name: Build an image from Dockerfile
         run: |
-          docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:0.0.1  .
+          docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:0.0.2  .
 
+      - name: Install Trivy
+        run: |
+          sudo apt-get update && sudo apt-get install -y wget
+          wget https://github.com/aquasecurity/trivy/releases/download/v0.22.0/trivy_0.22.0_Linux-64bit.deb
+          sudo dpkg -i trivy_0.22.0_Linux-64bit.deb
+
+      - name: Scan Docker image with Trivy
+        run: |
+          trivy image --exit-code 1 --severity HIGH,CRITICAL ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:0.0.1
+
+      - name: Generate SBOM with Trivy
+        run: |
+          trivy image --format cyclonedx --output sbom.json ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:0.0.1
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v2
+        with:
+          name: sbom
+          path: sbom.json
           
       - name: Push the image if scan passes
         run: |
-          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:0.0.1 
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:0.0.2
 
 
