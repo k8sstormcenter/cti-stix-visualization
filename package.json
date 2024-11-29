@@ -8,9 +8,9 @@
     },
     "dependencies": {
         "cors": "^2.8.5",
-        "express": "^4.17.1",
-        "ioredis": "^4.27.4",
-        "package.json": "^2.0.1",
+        "express": "^4.21.1",
+        "ioredis": "^5.4.1",
+        "package.json": "^0.0.0",
         "path": "^0.12.7"
     }
 }
