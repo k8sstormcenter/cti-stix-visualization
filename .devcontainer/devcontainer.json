@@ -1,0 +1,16 @@
+{
+    "name": "Stanny's Python Dev Container",
+    "image": "mcr.microsoft.com/vscode/devcontainers/javascript-node:16",
+    "settings": {
+      "terminal.integrated.shell.linux": "/bin/bash"
+    },
+    "runArgs": [
+      "--network=host"
+    ],
+    "postStartCommand": "npm install package.json",
+    "mounts": [
+      "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached"
+    ],
+    "workspaceFolder": "/workspace",
+    "remoteUser": "vscode"
+  }

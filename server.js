@@ -4,39 +4,7 @@ const cors = require('cors');
 const path = require('path');
 
 
-// apiVersion: apps/v1
-// kind: Deployment
-// metadata:
-//   name: stix-visualizer
-// spec:
-//   replicas: 1
-//   selector:
-//     matchLabels:
-//       app: stix-visualizer
-//   template:
-//     metadata:
-//       labels:
-//         app: stix-visualizer
-//     spec:
-//       containers:
-//       - name: stix-visualizer
-//         image: k8sstormcenter/cti-stix-visualizer:0.0.1
-//         ports:
-//         - containerPort: 3000
-//         env:
-//         - name: PORT
-//           value: "3000"
-//         - name: REDIS_HOST
-//           value: "your-redis-host"
-//         - name: REDIS_PORT
-//           value: "51598"
-//         - name: REDIS_KEY_PREFIX
-//           value: "tetrastix"
-
 const app = express();
-
-//const redisPort = 51598;
-//const redisKeyPrefix = 'tetrastix';
 
 const port = process.env.PORT || 3000; // Default to 3000 if not set
 
@@ -45,7 +13,14 @@ const redisPort = process.env.REDIS_PORT || 6379; // Default Redis port
 const redisKeyPrefix = process.env.REDIS_KEY_PREFIX || 'tetrastix';
 
 const redisClient = new Redis({ host: redisHost, port: redisPort });
+//confirm redis connection 
+redisClient.on('connect', () => {
+    console.log('Connected to Redis');
+});
 
+redisClient.on('error', (err) => {
+    console.error('Redis error:', err);
+});
 
 app.use(cors());
 app.use(express.static(path.join(__dirname)));
@@ -53,8 +28,8 @@ app.use(express.static(path.join(__dirname)));
 // Endpoint to fetch Redis keys
 app.get('/redis-keys', async (req, res) => {
     try {
-        //example tetrastix:indicator--kh-ce-sys-ptrace:800aa1077359adcf9f03abe0472d2a2c
-        const keys = await redisClient.keys(`${redisKeyPrefix}:*`);
+        const keys = await redisClient.hkeys(redisKeyPrefix);
+        console.log("Fetching Redis keys:", keys);
         res.json(keys);
     } catch (err) {
         console.error("Error fetching Redis keys:", err);
@@ -67,8 +42,7 @@ app.get('/stix-bundle/:key', async (req, res) => {
     const key=  req.params.key;
     try {
         console.log("Fetching STIX bundle with key:", key);
-        data = await redisClient.lrange(key,-1,-1);
-        data = data[0];
+        const data = await redisClient.hget(redisKeyPrefix, key);
         res.json(data);
     } catch (err) {
         console.error("Error fetching STIX bundle:", err);

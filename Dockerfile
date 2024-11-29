@@ -1,17 +1,9 @@
-# Use a Node.js base image
-FROM node:22.0.0-alpine3.19
+FROM cgr.dev/chainguard/node:latest
+ENV NODE_ENV=production
 
-# Set the working directory inside the container
 WORKDIR /app
 
-# Copy the application files
-COPY . /app
-
-# Install the necessary dependencies
-RUN npm install package.json
-
-# Expose the port for the server
+COPY --chown=node:node . .
+RUN npm ci
 EXPOSE 3000
-
-# Start the server when the container runs
-CMD ["node", "server.js"]
+ENTRYPOINT ["node", "server.js"]

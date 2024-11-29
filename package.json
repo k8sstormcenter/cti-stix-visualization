@@ -4,12 +4,13 @@
     "description": "STIX Visualizer with Redis backend",
     "main": "server.js",
     "scripts": {
-      "start": "forever start -c node server.js && http-server -p 8083"
+        "start": "forever start -c node server.js && http-server -p 8083"
     },
     "dependencies": {
-      "cors": "^2.8.5",
-      "express": "^4.17.1",
-      "ioredis": "^4.27.4",
-      "path": "^0.12.7"
+        "cors": "^2.8.5",
+        "express": "^4.17.1",
+        "ioredis": "^4.27.4",
+        "package.json": "^2.0.1",
+        "path": "^0.12.7"
     }
-  }
+}
