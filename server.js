@@ -73,21 +73,35 @@ app.get('/attack-bundles', async (req, res) => {
             data: JSON.parse(value) // Important to parse the JSON string!
         }));
         res.json(formattedBundles); 
-        console.log("Fetching Redis Attack Bundle:", keys);
+        //console.log("Fetching Redis Attack Bundle:", res.status());
     } catch (err) {
         console.error("Error fetching Redis attack bundles:", err);
         res.status(500).send("Error fetching Redis attack bundles");
     }
 });
 
+app.get('/attack-bundle-max', async (req, res) => {
+    try {
+        //retrieve the highest ID from Redis
+        const keys = await redisClient.hgetall(REDIS_PATTERNKEY);
+        if (Object.keys(keys).length === 0) { // Handle empty hash
+            return res.json(0); // Or whatever default value you want
+        }
+        const maxId = Math.max(...Object.keys(keys).map(Number)); // Correct way to find max
+        res.json(maxId);
+        console.log("Fetching highest ID:", maxId);
+    } catch (err) {
+        console.error("Error fetching highest ID:", err);
+        res.status(500).send("Error fetching highest ID");
+    }
+});
+
 app.post('/add-attack-bundles', async (req, res) => {
     try {
       const newBundle = req.body;
-      // Store this in Redis for now...
       // TODO: add check for exact identity to avoid duplicates
-      const nextBundleId = (await redisClient.hgetall(REDIS_PATTERNKEY)) + 1; // Assuming integer IDs
+      const nextBundleId = newBundle.data.id; // Assuming integer IDs
       await redisClient.hset(REDIS_PATTERNKEY, nextBundleId, JSON.stringify(newBundle.data));
-  
       res.json({ message: 'Attack bundle added', id: nextBundleId });
     } catch (err) {
       console.error("Error adding attack bundle:", err);
@@ -97,12 +111,10 @@ app.post('/add-attack-bundles', async (req, res) => {
 
 app.post('/modify-attack-bundles', async (req, res) => {
     try {
-        console.error("Request body:", req);
         if (!req ) {  // Check if data exists
-            return res.status(400).send("Missing 'data' property in request body"); // Or handle it differently
+            return res.status(400).send("Missing request body"); // Or handle it differently
         }
       const newBundle = req.body;
-      // Store this in Redis for now...
       await redisClient.hset(REDIS_PATTERNKEY, newBundle.id, JSON.stringify(newBundle.data));
   
       res.json({ message: 'Attack bundle overwritten', id: newBundle.id });
@@ -115,7 +127,6 @@ app.post('/modify-attack-bundles', async (req, res) => {
   app.post('/delete-attack-bundles', async (req, res) => {
     try {
       const newBundle = req.body;
-      // Remove Bundle from Redis.
       await redisClient.hdel(REDIS_PATTERNKEY, newBundle.data.id);
   
       res.json({ message: 'Attack bundle deleted', id: newBundle.data.id });

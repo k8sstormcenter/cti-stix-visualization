@@ -20,10 +20,8 @@ require.config({
 require(["domReady!", "stix2viz/stix2viz/stix2viz"], function (document, stix2viz) {
     const backendUrl = 'http://localhost:3000';
 
-    // Function to fetch Redis keys from the backend
     async function getRedisKeys() {
         try {
-            //const encodedKey = encodeURIComponent(key);
             const response = await fetch(`${backendUrl}/redis-keys`);
             const keys = await response.json();
             return keys;
@@ -33,7 +31,6 @@ require(["domReady!", "stix2viz/stix2viz/stix2viz"], function (document, stix2vi
         }
     }
 
-    // Function to fetch STIX bundle from the backend
     async function getStixBundle(key) {
         try {
             const response = await fetch(`${backendUrl}/stix-bundle/${key}`);
@@ -44,10 +41,6 @@ require(["domReady!", "stix2viz/stix2viz/stix2viz"], function (document, stix2vi
             throw err;
         }
     }
-
-
-
-    // Populate the select element with Redis keys
     getRedisKeys()
         .then(keys => {
             const selectElement = document.getElementById('redisKeys');
@@ -64,51 +57,10 @@ require(["domReady!", "stix2viz/stix2viz/stix2viz"], function (document, stix2vi
     document.getElementById('visualizeButton').addEventListener('click', async () => {
         const selectedKey = document.getElementById('redisKeys').value;
         const stixBundle = await getStixBundle(selectedKey);
-        console.log("Visualizing STIX bundle:", stixBundle);
-        //const visualizer = new stix2viz.Viz(document.getElementById('stixVisualization'));
         let customConfig = document.getElementById('paste-area-custom-config').value;
         vizStixWrapper(stixBundle, customConfig);
         linkifyHeader();
     });
-
-
-
-
-// Fetch and display attack bundles
-async function fetchAttackBundles() {
-    const response = await fetch(`${backendUrl}/attack-bundles`); // New endpoint
-    const bundles = await response.json();
-    // ... (Add your logic here to display the bundles in a table or other UI element)
-}
-
-
-// Function to add a new attack bundle (update to send data to the backend)
-async function addAttackBundle(bundleData) {  // bundleData should be a JavaScript object
-    try {
-        const response = await fetch(`${backendUrl}/attack-bundles`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ data: bundleData }) // Send the bundle data as JSON
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json(); // Get error details from response
-            throw new Error(`Failed to add bundle: ${errorData.error || response.statusText}`);
-        }
-        const newBundle = await response.json();
-
-        //Update UI. It depends on how you display attack bundles
-        // ... Add code here to update the UI with the new bundle
-        console.log("new bundle: " + newBundle);
-
-    } catch (error) {
-        // Handle errors
-        console.error("Error adding bundle:", error);
-    }
-}
-
 
 
 
@@ -121,17 +73,19 @@ async function persistToMongoDB() {
         }
         const result = await response.json();
 
-        //Optionally: Update UI to reflect Redis data clearing.
         console.log(result.message); // "Data persisted to MongoDB"
 
-        // Refresh or update UI as needed, for example, clear the attack bundles table if you clear Redis on the server-side
-       // ...add your logic here
 
     } catch (error) {
         // Handle errors
         console.error("Error persisting to MongoDB:", error);
     }
 }
+
+async function cloneAttackBundle(bundleData) {  
+    console.log("Not implemented");    
+}
+
 
 async function displayAttackBundles() {
     const response = await fetch(`${backendUrl}/attack-bundles`);
@@ -148,15 +102,23 @@ async function displayAttackBundles() {
 
 
         idCell.textContent = bundle.id;
-        patternCell.textContent = JSON.stringify(bundle.data); // Display the pattern (consider formatting)
+        patternCell.textContent = JSON.stringify(bundle.data); 
 
         // Edit button
         const editButton = document.createElement('button');
         editButton.textContent = 'Edit';
         editButton.addEventListener('click', () => {
-          editAttackBundle(bundle); // Call edit function (see below)
+          editAttackBundle(bundle); 
         });
         actionsCell.appendChild(editButton);
+
+        // Clone button
+        const cloneButton = document.createElement('button');
+        cloneButton.textContent = 'Clone';
+        cloneButton.addEventListener('click', () => { 
+            cloneAttackBundle(bundle.data); 
+        } );
+        actionsCell.appendChild(cloneButton);
 
         // Delete button
         const deleteButton = document.createElement('button');
@@ -167,6 +129,84 @@ async function displayAttackBundles() {
         actionsCell.appendChild(deleteButton);
 
     });
+}
+
+document.getElementById('add-pattern').addEventListener('click', () => {
+    addAttackBundle(); 
+}); 
+
+async function addAttackBundle(bundle)
+{
+    const editArea = document.getElementById('edit-pattern-area');
+    const editText = document.getElementById('edit-pattern-text');
+    const addButton = document.getElementById('add-pattern');
+    const modifyButton = document.getElementById('add-modify-pattern');
+    addButton.style.display = 'block';
+
+    editArea.style.display = 'block';
+    const res =  await fetch(`${backendUrl}/attack-bundle-max`);
+    const nextID = String(await res.json() +1) ;
+
+    let emptybundle = {
+        "type": "bundle",
+        "id": nextID,
+        "name": "NAME",
+        "version": "1.0.0",
+        "spec_version": "2.1",
+        "objects": [
+          {
+            "type": "attack-pattern",
+            "id": "attack-pattern--NAME",
+            "name": "NAME",
+            "description": "description"
+           },
+           {
+             "type": "indicator",
+             "id": "indicator--NAME",
+             "name": "",
+             "description": "Detecting ",
+             "pattern": "[process:command_line MATCHES 'ln -s' AND process:command_line MATCHES '/var/log']",
+             "pattern_type": "stix",
+             "valid_from": "2024-01-01T00:00:00Z"
+           },
+           {
+             "type": "relationship",
+             "id": "relationship--NAME",
+             "relationship_type": "indicates",
+             "source_ref": "indicator--NAME",
+             "target_ref": "attack-pattern--NAME"
+           }
+        ]};
+    editText.value = JSON.stringify(emptybundle, null, 2); // Format nicely for editing
+
+
+
+    modifyButton.onclick = async () => {
+        try {
+
+            const formattedBundles = {
+                id: nextID , 
+                data: JSON.parse(editText.value) 
+            };
+             
+            const response = await fetch(`${backendUrl}/modify-attack-bundles`, { // New endpoint for modification
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formattedBundles)
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to add bundle: ${response.statusText}`);
+            }
+            displayAttackBundles(); // Refresh the table to show changes
+            editArea.style.display = 'none'; // Hide the edit area again
+            editText.value = '';
+
+        } catch (err) {
+            console.error("Error adding bundle:", err);
+            alert(`Error adding attack pattern:\n ${err}`); // User-friendly error message
+        }
+    }
 }
 
 
@@ -193,11 +233,9 @@ async function editAttackBundle(bundle)
                 body: JSON.stringify(formattedBundles)
             });
 
-
             if (!response.ok) {
                 throw new Error(`Failed to modify bundle: ${response.statusText}`);
             }
-            // After a successful modification:
             displayAttackBundles(); // Refresh the table to show changes
             editArea.style.display = 'none'; // Hide the edit area again
             editText.value = '';
@@ -207,7 +245,6 @@ async function editAttackBundle(bundle)
             alert(`Error modifying attack pattern:\n ${err}`); // User-friendly error message
         }
     }
-
 }
 
 
