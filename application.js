@@ -74,6 +74,168 @@ require(["domReady!", "stix2viz/stix2viz/stix2viz"], function (document, stix2vi
 
 
 
+// Fetch and display attack bundles
+async function fetchAttackBundles() {
+    const response = await fetch(`${backendUrl}/attack-bundles`); // New endpoint
+    const bundles = await response.json();
+    // ... (Add your logic here to display the bundles in a table or other UI element)
+}
+
+
+// Function to add a new attack bundle (update to send data to the backend)
+async function addAttackBundle(bundleData) {  // bundleData should be a JavaScript object
+    try {
+        const response = await fetch(`${backendUrl}/attack-bundles`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ data: bundleData }) // Send the bundle data as JSON
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json(); // Get error details from response
+            throw new Error(`Failed to add bundle: ${errorData.error || response.statusText}`);
+        }
+        const newBundle = await response.json();
+
+        //Update UI. It depends on how you display attack bundles
+        // ... Add code here to update the UI with the new bundle
+        console.log("new bundle: " + newBundle);
+
+    } catch (error) {
+        // Handle errors
+        console.error("Error adding bundle:", error);
+    }
+}
+
+
+
+
+// Persist data to MongoDB (call this when the user confirms)
+async function persistToMongoDB() {
+    try {
+        const response = await fetch(`${backendUrl}/persist-to-mongodb`, { method: 'POST' }); // New endpoint
+        if (!response.ok) {
+            throw new Error(`Failed to persist data: ${response.statusText}`);
+        }
+        const result = await response.json();
+
+        //Optionally: Update UI to reflect Redis data clearing.
+        console.log(result.message); // "Data persisted to MongoDB"
+
+        // Refresh or update UI as needed, for example, clear the attack bundles table if you clear Redis on the server-side
+       // ...add your logic here
+
+    } catch (error) {
+        // Handle errors
+        console.error("Error persisting to MongoDB:", error);
+    }
+}
+
+async function displayAttackBundles() {
+    const response = await fetch(`${backendUrl}/attack-bundles`);
+    const bundles = await response.json();
+
+    const tableBody = document.querySelector('#attack-patterns-table tbody');
+    tableBody.innerHTML = ''; // Clear existing rows
+
+    bundles.forEach(bundle => {
+        const row = tableBody.insertRow();
+        const idCell = row.insertCell();
+        const patternCell = row.insertCell();
+        const actionsCell = row.insertCell();
+
+
+        idCell.textContent = bundle.id;
+        patternCell.textContent = JSON.stringify(bundle.data); // Display the pattern (consider formatting)
+
+        // Edit button
+        const editButton = document.createElement('button');
+        editButton.textContent = 'Edit';
+        editButton.addEventListener('click', () => {
+          editAttackBundle(bundle); // Call edit function (see below)
+        });
+        actionsCell.appendChild(editButton);
+
+        // Delete button
+        const deleteButton = document.createElement('button');
+        deleteButton.textContent = 'Delete';
+        deleteButton.addEventListener('click', () => {
+            deleteAttackBundle(bundle.id);
+        });
+        actionsCell.appendChild(deleteButton);
+
+    });
+}
+
+
+async function editAttackBundle(bundle)
+{
+    const editArea = document.getElementById('edit-pattern-area');
+    const editText = document.getElementById('edit-pattern-text');
+    const modifyButton = document.getElementById('modify-pattern');
+
+    editArea.style.display = 'block';
+    editText.value = JSON.stringify(bundle.data, null, 2); // Format nicely for editing
+
+    modifyButton.onclick = async () => {
+        try {
+
+            const formattedBundles = {
+                id: bundle.id,
+                data: JSON.parse(editText.value) 
+            };
+             
+            const response = await fetch(`${backendUrl}/modify-attack-bundles`, { // New endpoint for modification
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formattedBundles)
+            });
+
+
+            if (!response.ok) {
+                throw new Error(`Failed to modify bundle: ${response.statusText}`);
+            }
+            // After a successful modification:
+            displayAttackBundles(); // Refresh the table to show changes
+            editArea.style.display = 'none'; // Hide the edit area again
+            editText.value = '';
+
+        } catch (err) {
+            console.error("Error modifying bundle:", err);
+            alert(`Error modifying attack pattern:\n ${err}`); // User-friendly error message
+        }
+    }
+
+}
+
+
+// Function to delete an attack bundle
+async function deleteAttackBundle(bundleId)
+{
+    try{
+        const response = await fetch(`${backendUrl}/delete-attack-bundles`, { // New endpoint for modification
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: {id:bundleId}})
+        });
+        if (!response.ok) {
+            throw new Error(`Failed to delete bundle: ${response.statusText}`);
+        }
+        displayAttackBundles();
+    } catch (err) {
+        console.error("Error deleting bundle:", err);
+        alert(`Error deleting attack pattern:\n ${err}`); // User-friendly error message
+    }
+}
+
+
+// Event listeners for buttons
+document.getElementById('refresh-patterns').addEventListener('click', displayAttackBundles);
+document.getElementById('persist-patterns').addEventListener('click', persistToMongoDB);
+
+displayAttackBundles();
 
     // Init some stuff
     let view = null;
@@ -201,7 +363,7 @@ require(["domReady!", "stix2viz/stix2viz/stix2viz"], function (document, stix2vi
                 = stix2viz.makeGraphData(content, customConfig);
 
             let wantsList = false;
-            if (nodeDataSet.length > 200)
+            if (nodeDataSet.length > 500)
                 wantsList = confirm(
                     "This graph contains " + nodeDataSet.length.toString()
                     + " nodes.  Do you wish to display it as a list?"
