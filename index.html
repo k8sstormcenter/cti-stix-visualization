@@ -6,13 +6,64 @@
     <meta charset="utf-8"/>
     <link rel="stylesheet" type="text/css" href="application.css" />
     <script src="require.js" data-main="application"></script>
+    <style>
+      /* Basic table styling (customize as needed) */
+      #attack-patterns-table {
+          width: 100%;
+          border-collapse: collapse;
+      }
+
+      #attack-patterns-table th,
+      #attack-patterns-table td {
+          border: 1px solid #ddd;
+          padding: 8px;
+          text-align: left;
+      }
+
+      #attack-patterns-table th {
+          background-color: #f2f2f2;
+      }
+
+      #edit-pattern-area {
+          margin-top: 20px;
+      }
+
+      #edit-pattern-text {
+          width: 100%;
+          height: 200px;
+      }
+  </style>
   </head>
 
   <body>
     <h1>STIX Visualizer</h1>
-    <select id="redisKeys"></select> <button id="visualizeButton">Visualize</button>
-    <div id="stixVisualization"></div>
+    <div id="attack-patterns-section">
+      <h2>Attack Patterns</h2>
+      <button id="refresh-patterns">Refresh</button>
+      <button id="persist-patterns">Persist to MongoDB</button>
+      <button id="add-pattern">Add New Pattern</button>
+      <table id="attack-patterns-table">
+          <thead>
+              <tr>
+                  <th>ID</th>
+                  <th>Pattern</th>
+                  <th>Actions</th>
+              </tr>
+          </thead>
+          <tbody></tbody>
+      </table>
+      <div id="edit-pattern-area" style="display: none;">
+          <h3>Edit Pattern</h3>
+          <textarea id="edit-pattern-text"></textarea><br>
+          <button id="modify-pattern">Modify Attack Pattern</button>
+          <button id="add-modify-pattern">Add new Attack Pattern</button>
+      </div>
+  </div>
 
+  <div id="stixVisualization">
+    <p>Select which STIX (2.1 only) Bundle from Redis youd like to visualize</p>
+    <select id="redisKeys"></select> <button id="visualizeButton">Visualize</button>
+  </div>
     <div id="uploader">
       <p>Drop some STIX 2.x here!</p>
       <input type="file" id="files" name="files" /><br>

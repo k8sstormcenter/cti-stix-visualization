@@ -20,10 +20,8 @@ require.config({
 require(["domReady!", "stix2viz/stix2viz/stix2viz"], function (document, stix2viz) {
     const backendUrl = 'http://localhost:3000';
 
-    // Function to fetch Redis keys from the backend
     async function getRedisKeys() {
         try {
-            //const encodedKey = encodeURIComponent(key);
             const response = await fetch(`${backendUrl}/redis-keys`);
             const keys = await response.json();
             return keys;
@@ -33,7 +31,6 @@ require(["domReady!", "stix2viz/stix2viz/stix2viz"], function (document, stix2vi
         }
     }
 
-    // Function to fetch STIX bundle from the backend
     async function getStixBundle(key) {
         try {
             const response = await fetch(`${backendUrl}/stix-bundle/${key}`);
@@ -44,10 +41,6 @@ require(["domReady!", "stix2viz/stix2viz/stix2viz"], function (document, stix2vi
             throw err;
         }
     }
-
-
-
-    // Populate the select element with Redis keys
     getRedisKeys()
         .then(keys => {
             const selectElement = document.getElementById('redisKeys');
@@ -64,8 +57,6 @@ require(["domReady!", "stix2viz/stix2viz/stix2viz"], function (document, stix2vi
     document.getElementById('visualizeButton').addEventListener('click', async () => {
         const selectedKey = document.getElementById('redisKeys').value;
         const stixBundle = await getStixBundle(selectedKey);
-        console.log("Visualizing STIX bundle:", stixBundle);
-        //const visualizer = new stix2viz.Viz(document.getElementById('stixVisualization'));
         let customConfig = document.getElementById('paste-area-custom-config').value;
         vizStixWrapper(stixBundle, customConfig);
         linkifyHeader();
@@ -73,7 +64,215 @@ require(["domReady!", "stix2viz/stix2viz/stix2viz"], function (document, stix2vi
 
 
 
+// Persist data to MongoDB (call this when the user confirms)
+async function persistToMongoDB() {
+    try {
+        const response = await fetch(`${backendUrl}/persist-to-mongodb`, { method: 'POST' }); // New endpoint
+        if (!response.ok) {
+            throw new Error(`Failed to persist data: ${response.statusText}`);
+        }
+        const result = await response.json();
 
+        console.log(result.message); // "Data persisted to MongoDB"
+
+
+    } catch (error) {
+        // Handle errors
+        console.error("Error persisting to MongoDB:", error);
+    }
+}
+
+async function cloneAttackBundle(bundleData) {  
+    console.log("Not implemented");    
+}
+
+
+async function displayAttackBundles() {
+    const response = await fetch(`${backendUrl}/attack-bundles`);
+    const bundles = await response.json();
+
+    const tableBody = document.querySelector('#attack-patterns-table tbody');
+    tableBody.innerHTML = ''; // Clear existing rows
+
+    bundles.forEach(bundle => {
+        const row = tableBody.insertRow();
+        const idCell = row.insertCell();
+        const patternCell = row.insertCell();
+        const actionsCell = row.insertCell();
+
+
+        idCell.textContent = bundle.id;
+        patternCell.textContent = JSON.stringify(bundle.data); 
+
+        // Edit button
+        const editButton = document.createElement('button');
+        editButton.textContent = 'Edit';
+        editButton.addEventListener('click', () => {
+          editAttackBundle(bundle); 
+        });
+        actionsCell.appendChild(editButton);
+
+        // Clone button
+        const cloneButton = document.createElement('button');
+        cloneButton.textContent = 'Clone';
+        cloneButton.addEventListener('click', () => { 
+            cloneAttackBundle(bundle.data); 
+        } );
+        actionsCell.appendChild(cloneButton);
+
+        // Delete button
+        const deleteButton = document.createElement('button');
+        deleteButton.textContent = 'Delete';
+        deleteButton.addEventListener('click', () => {
+            deleteAttackBundle(bundle.id);
+        });
+        actionsCell.appendChild(deleteButton);
+
+    });
+}
+
+document.getElementById('add-pattern').addEventListener('click', () => {
+    addAttackBundle(); 
+}); 
+
+async function addAttackBundle(bundle)
+{
+    const editArea = document.getElementById('edit-pattern-area');
+    const editText = document.getElementById('edit-pattern-text');
+    const addButton = document.getElementById('add-pattern');
+    const modifyButton = document.getElementById('add-modify-pattern');
+    addButton.style.display = 'block';
+
+    editArea.style.display = 'block';
+    const res =  await fetch(`${backendUrl}/attack-bundle-max`);
+    const nextID = String(await res.json() +1) ;
+
+    let emptybundle = {
+        "type": "bundle",
+        "id": nextID,
+        "name": "NAME",
+        "version": "1.0.0",
+        "spec_version": "2.1",
+        "objects": [
+          {
+            "type": "attack-pattern",
+            "id": "attack-pattern--NAME",
+            "name": "NAME",
+            "description": "description"
+           },
+           {
+             "type": "indicator",
+             "id": "indicator--NAME",
+             "name": "",
+             "description": "Detecting ",
+             "pattern": "[process:command_line MATCHES 'ln -s' AND process:command_line MATCHES '/var/log']",
+             "pattern_type": "stix",
+             "valid_from": "2024-01-01T00:00:00Z"
+           },
+           {
+             "type": "relationship",
+             "id": "relationship--NAME",
+             "relationship_type": "indicates",
+             "source_ref": "indicator--NAME",
+             "target_ref": "attack-pattern--NAME"
+           }
+        ]};
+    editText.value = JSON.stringify(emptybundle, null, 2); // Format nicely for editing
+
+
+
+    modifyButton.onclick = async () => {
+        try {
+
+            const formattedBundles = {
+                id: nextID , 
+                data: JSON.parse(editText.value) 
+            };
+             
+            const response = await fetch(`${backendUrl}/modify-attack-bundles`, { // New endpoint for modification
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formattedBundles)
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to add bundle: ${response.statusText}`);
+            }
+            displayAttackBundles(); // Refresh the table to show changes
+            editArea.style.display = 'none'; // Hide the edit area again
+            editText.value = '';
+
+        } catch (err) {
+            console.error("Error adding bundle:", err);
+            alert(`Error adding attack pattern:\n ${err}`); // User-friendly error message
+        }
+    }
+}
+
+
+async function editAttackBundle(bundle)
+{
+    const editArea = document.getElementById('edit-pattern-area');
+    const editText = document.getElementById('edit-pattern-text');
+    const modifyButton = document.getElementById('modify-pattern');
+
+    editArea.style.display = 'block';
+    editText.value = JSON.stringify(bundle.data, null, 2); // Format nicely for editing
+
+    modifyButton.onclick = async () => {
+        try {
+
+            const formattedBundles = {
+                id: bundle.id,
+                data: JSON.parse(editText.value) 
+            };
+             
+            const response = await fetch(`${backendUrl}/modify-attack-bundles`, { // New endpoint for modification
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formattedBundles)
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to modify bundle: ${response.statusText}`);
+            }
+            displayAttackBundles(); // Refresh the table to show changes
+            editArea.style.display = 'none'; // Hide the edit area again
+            editText.value = '';
+
+        } catch (err) {
+            console.error("Error modifying bundle:", err);
+            alert(`Error modifying attack pattern:\n ${err}`); // User-friendly error message
+        }
+    }
+}
+
+
+// Function to delete an attack bundle
+async function deleteAttackBundle(bundleId)
+{
+    try{
+        const response = await fetch(`${backendUrl}/delete-attack-bundles`, { // New endpoint for modification
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: {id:bundleId}})
+        });
+        if (!response.ok) {
+            throw new Error(`Failed to delete bundle: ${response.statusText}`);
+        }
+        displayAttackBundles();
+    } catch (err) {
+        console.error("Error deleting bundle:", err);
+        alert(`Error deleting attack pattern:\n ${err}`); // User-friendly error message
+    }
+}
+
+
+// Event listeners for buttons
+document.getElementById('refresh-patterns').addEventListener('click', displayAttackBundles);
+document.getElementById('persist-patterns').addEventListener('click', persistToMongoDB);
+
+displayAttackBundles();
 
     // Init some stuff
     let view = null;
@@ -201,7 +400,7 @@ require(["domReady!", "stix2viz/stix2viz/stix2viz"], function (document, stix2vi
                 = stix2viz.makeGraphData(content, customConfig);
 
             let wantsList = false;
-            if (nodeDataSet.length > 200)
+            if (nodeDataSet.length > 500)
                 wantsList = confirm(
                     "This graph contains " + nodeDataSet.length.toString()
                     + " nodes.  Do you wish to display it as a list?"
