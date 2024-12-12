@@ -17,8 +17,29 @@ require.config({
     }
 });
 
+function allowDrop(ev) { ev.preventDefault(); }
+
+function dragLog(ev) {
+    ev.dataTransfer.setData("text", ev.target.id);
+}
+
+const ACTIVE_LOGS_KEY = 'active_logs';
+const RAW_LOGS_KEY = 'raw_logs';
+const backendUrl = 'http://localhost:3000';
+
+async function dropLog(ev) {
+    ev.preventDefault();
+    const logID = ev.dataTransfer.getData("text");
+
+       await fetch(`${backendUrl}/add-log?id=${logID}`);
+    
+    //displayRawLogs();
+    //displayActiveLogs();
+}
+
+
 require(["domReady!", "stix2viz/stix2viz/stix2viz"], function (document, stix2viz) {
-    const backendUrl = 'http://localhost:3000';
+  
 
     async function getRedisKeys() {
         try {
@@ -305,6 +326,144 @@ displayAttackBundles();
         alert(message);
     }
 
+
+let currentPage = 1;
+const logsPerPage = 5;
+    
+
+async function displayRawLogs(page = 1) {
+    try {
+        const response = await fetch(`${backendUrl}/raw-logs?page=${page}&perPage=${logsPerPage}`);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch raw logs: ${response.statusText}`);
+        }
+        const rawLogs = await response.json();
+        const rawLogsList = document.getElementById('raw-logs-list');
+        rawLogsList.innerHTML = ''; 
+
+    rawLogs.logs.forEach(log => {
+        const li = document.createElement('li');
+        const details = document.createElement('details');
+        const summary = document.createElement('summary');
+        try {
+            const logObj = JSON.parse(log);
+            const formattedLog = JSON.stringify(logObj, null, 2); 
+            const pre = document.createElement('pre');
+            pre.textContent = formattedLog;
+            summary.textContent = logObj.dedup; 
+            details.appendChild(pre);
+        } catch (e) {  
+            console.error("Non-json log:", log);
+            details.textContent = log; 
+        }
+
+        details.appendChild(document.createElement('br'));
+
+
+        li.appendChild(summary);
+        li.appendChild(details);
+        li.draggable = true; 
+        li.id = log;
+        li.ondragstart = dragLog; 
+        rawLogsList.appendChild(li);
+    });
+    updatePagination(rawLogs.page, rawLogs.perPage, rawLogs.total);
+    } catch (error) {
+        console.error("Error fetching raw logs:", error);
+    }
+};
+
+async function displayActiveLogs(page = 1) {
+    try {
+        const response = await fetch(`${backendUrl}/active-logs?page=${page}&perPage=${logsPerPage}`);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch raw logs: ${response.statusText}`);
+        }
+        const actLogs = await response.json();
+        const actLogsList = document.getElementById('active-logs-list');
+        actLogsList.innerHTML = '';
+
+    actLogs.logs.forEach(log => {
+        const li = document.createElement('li');
+        const details = document.createElement('details');
+        const summary = document.createElement('summary');
+        try {
+            const logObj = JSON.parse(log);
+            const formattedLog = JSON.stringify(logObj, null, 2); 
+            const pre = document.createElement('pre');
+            summary.textContent = logObj.dedup; 
+            pre.textContent = formattedLog;
+            details.appendChild(pre);
+        } catch (e) {  
+            console.error("Non-json log:", log);
+            details.textContent = log; 
+        }
+
+        details.appendChild(document.createElement('br'));
+
+
+        li.appendChild(summary);
+        li.appendChild(details);
+        li.draggable = true; 
+        li.id = log;
+        li.ondragstart = dragLog; 
+        actLogsList.appendChild(li);
+    });
+    updatePagination(actLogs.page, actLogs.perPage, actLogs.total);
+}
+    catch (error) {
+        console.error("Error fetching active logs:", error);
+    }
+}
+
+
+
+
+const rawLogsDiv = document.getElementById('raw-logs');
+const activeLogsDiv = document.getElementById('active-logs');
+
+// Add the event listeners
+rawLogsDiv.addEventListener('drop', dropLog);
+activeLogsDiv.addEventListener('drop', dropLog);
+rawLogsDiv.addEventListener('dragover', allowDrop);
+activeLogsDiv.addEventListener('dragover', allowDrop);
+// Initial display of logs
+displayRawLogs().catch(err => console.error('Failed to raw logs initially:', err));;
+displayActiveLogs().catch(err => console.error('Failed to active logs initially:', err));;
+
+function updatePagination(page, perPage, total) {
+    const pagination = document.getElementById('pagination');  // Assumes you have a <div id="pagination"></div>
+    pagination.innerHTML = ''; 
+
+    const totalPages = Math.ceil(total / perPage);
+
+    if (totalPages > 1) {
+
+        const prevButton = document.createElement('button');
+        prevButton.textContent = 'Previous';
+        prevButton.disabled = (page === 1);
+        prevButton.addEventListener('click', () => displayRawLogs(page - 1));
+        pagination.appendChild(prevButton);
+
+        for (let i = 1; i <= totalPages; i++) {
+            const pageLink = document.createElement('button');
+            pageLink.textContent = i;
+            pageLink.disabled = (i === page)
+            pageLink.addEventListener('click', () => displayRawLogs(i));
+            pagination.appendChild(pageLink);
+        }
+
+        const nextButton = document.createElement('button');
+        nextButton.textContent = 'Next';
+        nextButton.disabled = (page === totalPages);
+        nextButton.addEventListener('click', () => displayRawLogs(page + 1));
+        pagination.appendChild(nextButton);
+
+
+        const logManagementSection = document.getElementById("log-management-section");
+        logManagementSection.insertAdjacentElement('beforeend', pagination)
+    }
+}
 
     /**
      * Handle clicks on the visjs graph view.
