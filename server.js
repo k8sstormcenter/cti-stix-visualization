@@ -2,6 +2,7 @@ const express = require('express');
 const Redis = require('ioredis');
 const cors = require('cors');
 const path = require('path');
+const Queue = require('bull');
 const MongoClient = require('mongodb').MongoClient;
 // Make sure your mongodb client is correctly initialized!
 const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017'; // Replace with your MongoDB connection string
@@ -26,6 +27,9 @@ const redisHost = process.env.REDIS_HOST || '127.0.0.1';
 const redisPort = process.env.REDIS_PORT || 6379; // Default Redis port
 const redisKeyPrefix = process.env.REDIS_KEY_PREFIX || 'tetrastix';
 const REDIS_PATTERNKEY = process.env.REDIS_PATTERNKEY || 'tetra_pattern';
+const RAW_LOGS_KEY = process.env.RAW_LOGS_KEY || 'raw_logs';
+const TETRA = process.env.TETRA || 'tetra';
+const ACTIVE_LOGS_KEY = process.env.ACTIVE_LOGS_KEY|| 'active_logs';
 
 const redisClient = new Redis({ host: redisHost, port: redisPort });
 //confirm redis connection 
@@ -36,11 +40,121 @@ redisClient.on('connect', () => {
 redisClient.on('error', (err) => {
     console.error('Redis error:', err);
 });
-
+const redisConfig = {
+    redis: {
+      port: 6379, // Redis server port
+      host: 'localhost', // Redis server host
+    },
+  };
+const ACTIVE_QUEUE = new Queue(ACTIVE_LOGS_KEY, redisConfig);
 app.use(cors());
 app.use(express.static(path.join(__dirname)));
 
-// Endpoint to fetch Redis keys
+
+app.get('/reload-tetra', async (req, res) => {
+    const rawLogs = await redisClient.lrange(TETRA, 0, -1);
+    //now we replace all the logs in the raw logs key
+    await redisClient.del(RAW_LOGS_KEY);
+    if (rawLogs.length > 0) {  // Check if rawLogs is not empty
+        await redisClient.rpush(RAW_LOGS_KEY, ...rawLogs); // Use rpush with spread operator
+        console.log("Reloaded raw logs from Tetra");
+    }
+});
+
+app.get('/raw-logs', async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1; 
+        const perPage = parseInt(req.query.perPage) || 5; 
+
+        const startIndex = (page - 1) * perPage;
+        const endIndex = startIndex + perPage - 1;
+
+        const rawLogs = await redisClient.lrange(RAW_LOGS_KEY, startIndex, endIndex);
+        const totalLogs = await redisClient.llen(RAW_LOGS_KEY); 
+
+        res.json({
+            logs: rawLogs,
+            page: page,
+            perPage: perPage,
+            total: totalLogs
+        });
+    } catch (err) { 
+        console.error("Error fetching raw logs:", err);
+        res.status(500).send("Error fetching raw logs");
+     }
+});
+
+app.get('/active-logs-count', async (req, res) => {
+    try {
+        const count = await ACTIVE_QUEUE.getWaitingCount(); //Gets the total number of jobs waiting in the active logs queue
+        res.json({ total: count });
+    } catch (err) {
+        console.error("Error getting active logs count:", err);
+        res.status(500).json({ error: "Error getting active logs count" });
+    }
+});
+
+app.get('/active-logs', async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const perPage = parseInt(req.query.perPage) || 5; 
+
+        const startIndex = (page - 1) * perPage;
+        const endIndex = startIndex + perPage - 1;
+
+        const jobs = await ACTIVE_QUEUE.getWaiting(startIndex, perPage); //Get a page of active logs
+        const totalJobs = await ACTIVE_QUEUE.getWaitingCount();
+
+
+        //Extract job data
+        const logs = jobs.map(job => job.data.data);
+
+        res.json({
+            logs: logs
+        });
+
+    } catch (err) {
+        console.error("Error fetching active logs:", err);
+        res.status(500).json({ error: "Error fetching active logs" });
+    }
+
+});
+
+app.get('/add-log', async (req, res) => {      
+    try {
+        const key = req.query.id;
+        const table = req.query.table;
+        console.log("Adding log:", key, " to table:", table);
+        ACTIVE_QUEUE.add({ data: key });
+        res.json({ message: 'Log added', id: key });
+    } catch (err) { 
+        console.error("Error queuing log:", err);
+        res.status(500).send("Error queuing log");
+     }
+});
+app.get('/rem-log', async (req, res) => {      
+    try {
+        const key = req.query.id;
+        const table = req.query.table;
+        const log = await redisClient.xreadgroup('GROUP', 'consumerGroup', 'consumerId', 'STREAMS', table, '>');  
+
+        if (log) {
+           const logId = log[0][1][0][1]['log'] 
+
+           await redisClient.xack(table, 'consumerGroup', log[0][1][0][0]);
+           await redisClient.xdel(table, log[0][1][0][0])
+           res.json({ message: 'Log removed', id: logId }); 
+        } else {
+          res.status(404).json({ message: 'No logs found' }); // Handle cases where there are no logs
+        }
+    } catch (err) { 
+        console.error("Error removing log:", err);
+        res.status(500).send("Error removing log");
+     }
+});
+
+
+
 app.get('/redis-keys', async (req, res) => {
     try {
         const keys = await redisClient.hkeys(redisKeyPrefix);
@@ -165,4 +279,5 @@ app.post('/persist-to-mongodb', async (req, res) => {
 
 app.listen(port, () => {
     console.log(`Server is running on http://localhost:${port}`);
+
 });
