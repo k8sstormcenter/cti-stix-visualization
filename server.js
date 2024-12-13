@@ -119,25 +119,28 @@ app.get('/active-logs', async (req, res) => {
 
 });
 
-app.get('/add-log', async (req, res) => {      
+app.get('/add-log', async (req, res) => {   
+    if(req.query.id) {  
     try {
         const logToAdd = req.query.id;
-        const jobs = await ACTIVE_QUEUE.getWaiting();
- 
+        const jobs = await ACTIVE_QUEUE.getWaiting(); 
         const jobToAdd = jobs.find(job => job.data.data === logToAdd);
         if (jobToAdd) {
-            res.json({ message: 'Log already active', id: jobToAdd.id });
+            return res.json({ message: 'Log already active', id: jobToAdd.id });
             
         } else {
-            await ACTIVE_QUEUE.add(logToAdd);
+            await ACTIVE_QUEUE.add({data: logToAdd});
             console.log("Log Added")
-        }  
-        res.json({ message: 'Log added', id: key });
+            return res.json({ message: 'Log added'});
+        }     
     } catch (err) { 
         console.error("Error queuing log:", err);
-        res.status(500).send("Error queuing log");
+        return res.status(500).send("Error queuing log");
+     }} else {
+        return res.status(400).send("Missing data");
      }
 });
+
 app.get('/rem-log', async (req, res) => {      
     try {
         const logToRemove = req.query.id;

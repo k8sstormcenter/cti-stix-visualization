@@ -20,6 +20,7 @@ require.config({
 const ACTIVE_LOGS_KEY = 'active_logs';
 const RAW_LOGS_KEY = 'raw_logs';
 const backendUrl = 'http://localhost:3000';
+const logsPerPage = 5;
 
 require(["domReady!", "stix2viz/stix2viz/stix2viz"], function (document, stix2viz) {
   
@@ -85,20 +86,6 @@ require(["domReady!", "stix2viz/stix2viz/stix2viz"], function (document, stix2vi
         ev.dataTransfer.setData("text", ev.target.id);
     }
       
-    // async function dropLog(ev) {
-    //     ev.preventDefault();
-    //     const logID = ev.dataTransfer.getData("text");
-    //     if (ev.target.id === 'raw-logs-list') {
-    //         await fetch(`${backendUrl}/rem-log?id=${logID}`);
-    //     } else if (ev.target.id === 'active-logs-list') {
-    //        await fetch(`${backendUrl}/add-log?id=${logID}`);
-    //     }
-        
-    //     displayRawLogs();
-    //     displayActiveLogs();
-    // }
-    
-
 // Persist data to MongoDB (call this when the user confirms)
 async function persistToMongoDB() {
     try {
@@ -315,11 +302,6 @@ displayAttackBundles();
     let canvasContainer = document.getElementById('canvas-container');
     let canvas = document.getElementById('canvas');
 
-    /**
-     * Build a message and display an alert window, from an exception object.
-     * This will follow the exception's causal chain and display all of the
-     * causes in sequence, to produce a more informative message.
-     */
     function alertException(exc, initialMessage=null)
     {
         let messages = [];
@@ -341,10 +323,6 @@ displayAttackBundles();
     }
 
 
-let currentPage = 1;
-const logsPerPage = 5;
-    
-
 async function displayRawLogs(page = 1) {
     try {
         const response = await fetch(`${backendUrl}/raw-logs?page=${page}&perPage=${logsPerPage}`);
@@ -353,6 +331,7 @@ async function displayRawLogs(page = 1) {
         }
         const rawLogs = await response.json();
         const rawLogsList = document.getElementById('raw-logs-list');
+        
         rawLogsList.innerHTML = ''; 
 
 
@@ -383,13 +362,6 @@ async function displayRawLogs(page = 1) {
         rawLogsList.appendChild(li);
     });
     updatePagination(rawLogs.page, rawLogs.perPage, rawLogs.total, 'raw-logs-list');
-    const selectAllButtonRaw = document.createElement('button');
-    selectAllButtonRaw.textContent = 'Select All';
-    selectAllButtonRaw.addEventListener('click', () => {
-        selectAllLogs('raw-logs-list');
-    });
-    const rawLogsDiv = document.getElementById("raw-logs"); //Get the div where the selectAll button will be inserted
-    rawLogsDiv.insertAdjacentElement('beforeend', selectAllButtonRaw)
     } catch (error) {
         console.error("Error fetching raw logs:", error);
     }
@@ -405,6 +377,7 @@ async function displayActiveLogs(page = 1) {
         const actLogs = await response.json();
         const actLogsList = document.getElementById('active-logs-list');
         actLogsList.innerHTML = '';
+    
 
     actLogs.logs.forEach(log => {
         const li = document.createElement('li');
@@ -424,7 +397,6 @@ async function displayActiveLogs(page = 1) {
 
         details.appendChild(document.createElement('br'));
 
-
         li.appendChild(summary);
         li.appendChild(details);
         li.draggable = true; 
@@ -433,56 +405,25 @@ async function displayActiveLogs(page = 1) {
         actLogsList.appendChild(li);
     });
     updatePagination(actLogs.page, actLogs.perPage, actLogs.total,'active-logs-list');
-    const selectAllButtonActive = document.createElement('button');
-    selectAllButtonActive.textContent = 'Select All';
-    selectAllButtonActive.addEventListener('click', () => {
-        selectAllLogs('active-logs-list'); // Call with the ID of the active logs list
-    });
-    const activeLogsDiv = document.getElementById("active-logs"); //Get the div where the selectAll button will be inserted
-    activeLogsDiv.insertAdjacentElement('beforeend', selectAllButtonActive)
 }
     catch (error) {
         console.error("Error fetching active logs:", error);
     }
 }
 
-function selectAllLogs(listId) {
-    const listItems = document.querySelectorAll(`#${listId} li`); // Select LIs within correct list
-    let allSelected = true;
 
-    listItems.forEach(item => {
-        if (!item.classList.contains('selected')) {
-            allSelected = false;
-            return; //Can break forEach loop
-        }
-    });
-
-
-    listItems.forEach(item => {
-        if (allSelected) {
-            item.classList.remove('selected');
-        } else {
-            item.classList.add('selected');
-        }
-    });
-
-}
-
-
-
-    const rawLogsDiv = document.getElementById('raw-logs');
-    const activeLogsDiv = document.getElementById('active-logs');
-    const toggleButton = document.getElementById('toggle-logs');
-    const selectAllButton = document.getElementById('select-all');
-
-
-
-
-// Add the event listeners
+const rawLogsDiv = document.getElementById('raw-logs');
+const activeLogsDiv = document.getElementById('active-logs');
+const rawLogsList = document.getElementById('raw-logs-list');
+const activeLogsList = document.getElementById('active-logs-list');
 rawLogsDiv.addEventListener('drop', dropLog);
 activeLogsDiv.addEventListener('drop', dropLog);
 rawLogsDiv.addEventListener('dragover', allowDrop);
 activeLogsDiv.addEventListener('dragover', allowDrop);
+rawLogsList.addEventListener('drop', dropLog);
+rawLogsList.addEventListener('dragover', allowDrop);
+activeLogsList.addEventListener('drop', dropLog);
+activeLogsList.addEventListener('dragover', allowDrop);
 // Initial display of logs
 displayRawLogs().catch(err => console.error('Failed to raw logs initially:', err));;
 displayActiveLogs().catch(err => console.error('Failed to active logs initially:', err));;
@@ -490,9 +431,10 @@ displayActiveLogs().catch(err => console.error('Failed to active logs initially:
 async function dropLog(ev) {
     ev.preventDefault();
     const logID = ev.dataTransfer.getData("text");
-    if (ev.target.id === 'raw-logs-list') {
+    const targetListId = ev.target.closest('ul').id;
+    if (targetListId === 'raw-logs-list') {
         await fetch(`${backendUrl}/rem-log?id=${logID}`);
-    } else if (ev.target.id === 'active-logs-list') {
+    } else {
        await fetch(`${backendUrl}/add-log?id=${logID}`);
     }
     
@@ -502,26 +444,25 @@ async function dropLog(ev) {
 
 function updatePagination(page, perPage, total, listId) {
     const paginationId = (listId === 'raw-logs-list') ? 'pagination-raw' : 'pagination-active'; // Determine pagination ID
-    const pagination = document.getElementById(paginationId); // Get the correct pagination div
+    const pagination = document.getElementById(paginationId); 
     pagination.innerHTML = ''; 
 
     const totalPages = Math.ceil(total / perPage);
 
-    if (totalPages > 1) {
+    if (totalPages > 0) {
+        addPageButton(1, page, pagination);
 
+        if (totalPages > 2) {
+            addPageButton(2, page, pagination);
+        }
+        if (totalPages > 2 && page < totalPages )
+        {
         const prevButton = document.createElement('button');
         prevButton.textContent = 'Previous';
         prevButton.disabled = (page === 1);
         prevButton.addEventListener('click', () => displayRawLogs(page - 1));
         pagination.appendChild(prevButton);
 
-        for (let i = 1; i <= totalPages; i++) {
-            const pageLink = document.createElement('button');
-            pageLink.textContent = i;
-            pageLink.disabled = (i === page)
-            pageLink.addEventListener('click', () => displayRawLogs(i));
-            pagination.appendChild(pageLink);
-        }
 
         const nextButton = document.createElement('button');
         nextButton.textContent = 'Next';
@@ -529,12 +470,42 @@ function updatePagination(page, perPage, total, listId) {
         nextButton.addEventListener('click', () => displayRawLogs(page + 1));
         pagination.appendChild(nextButton);
 
+        const endButton = document.createElement('button');
+        endButton.textContent = 'End';
+        endButton.addEventListener('click', () => {
+            if (listId === 'raw-logs-list') {
+                displayRawLogs(totalPages); // Go to the last page
+            } else {
+                displayActiveLogs(totalPages);
+            }
 
+        });
+        pagination.appendChild(endButton);
         const logManagementSection = document.getElementById("log-management-section");
         logManagementSection.insertAdjacentElement('beforeend', pagination)
     }
+  }
 }
 
+function addPageButton(pageNumber, currentPage, pagination) { // Helper function to create page buttons
+    const pageButton = document.createElement('button');
+    pageButton.textContent = pageNumber;
+
+    if (pageNumber === currentPage) {
+        pageButton.disabled = true; // Disable the current page button
+    } else {
+        pageButton.addEventListener('click', () => {
+
+            if (pagination.id.includes("raw")) { //Check what list the pagination bar is controlling, and display accordingly
+                displayRawLogs(pageNumber);
+            } else {
+                displayActiveLogs(pageNumber);
+            }
+        });
+    }
+    pagination.appendChild(pageButton);
+
+}
     /**
      * Handle clicks on the visjs graph view.
      *
