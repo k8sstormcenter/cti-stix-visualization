@@ -20,7 +20,7 @@ require.config({
 const ACTIVE_LOGS_KEY = 'active_logs';
 const RAW_LOGS_KEY = 'raw_logs';
 const backendUrl = 'http://localhost:3000';
-const logsPerPage = 5;
+let logsPerPage = 5;
 
 require(["domReady!", "stix2viz/stix2viz/stix2viz"], function (document, stix2viz) {
   
@@ -85,6 +85,21 @@ require(["domReady!", "stix2viz/stix2viz/stix2viz"], function (document, stix2vi
     function dragLog(ev) {
         ev.dataTransfer.setData("text", ev.target.id);
     }
+    document.getElementById('logs-per-page').addEventListener('change', (event) => {
+        logsPerPage = parseInt(event.target.value, 10); //Correctly parse the selection to a base 10 number
+            displayRawLogs();
+            displayActiveLogs();
+    });
+    document.getElementById('add-all-logs').addEventListener('click', async () => {
+        await fetch(`${backendUrl}/add-all-logs`);
+        displayRawLogs();
+        displayActiveLogs();
+    });
+    document.getElementById('rm-all-logs').addEventListener('click', async () => {
+        await fetch(`${backendUrl}/rm-all-logs`);
+        displayRawLogs();
+        displayActiveLogs();
+    });
       
 // Persist data to MongoDB (call this when the user confirms)
 async function persistToMongoDB() {
@@ -360,8 +375,9 @@ async function displayRawLogs(page = 1) {
         li.id = log;
         li.ondragstart = dragLog; 
         rawLogsList.appendChild(li);
-    });
+   
     updatePagination(rawLogs.page, rawLogs.perPage, rawLogs.total, 'raw-logs-list');
+    });
     } catch (error) {
         console.error("Error fetching raw logs:", error);
     }
@@ -403,8 +419,9 @@ async function displayActiveLogs(page = 1) {
         li.id = log;
         li.ondragstart = dragLog; 
         actLogsList.appendChild(li);
-    });
+    
     updatePagination(actLogs.page, actLogs.perPage, actLogs.total,'active-logs-list');
+});
 }
     catch (error) {
         console.error("Error fetching active logs:", error);
@@ -452,7 +469,7 @@ function updatePagination(page, perPage, total, listId) {
     if (totalPages > 0) {
         addPageButton(1, page, pagination);
 
-        if (totalPages > 2) {
+        if (totalPages > 1) {
             addPageButton(2, page, pagination);
         }
         if (totalPages > 2 && page < totalPages )

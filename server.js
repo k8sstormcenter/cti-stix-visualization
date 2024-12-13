@@ -109,7 +109,10 @@ app.get('/active-logs', async (req, res) => {
         const logs = jobs.map(job => job.data.data);
 
         res.json({
-            logs: logs
+            logs: logs,
+            page,
+            perPage,
+            total: totalJobs
         });
 
     } catch (err) {
@@ -117,6 +120,31 @@ app.get('/active-logs', async (req, res) => {
         res.status(500).json({ error: "Error fetching active logs" });
     }
 
+});
+
+
+app.get('/add-all-logs', async (req, res) => {   
+ 
+    try {
+        const rawLogs = await redisClient.lrange(RAW_LOGS_KEY,0,-1);
+        await ACTIVE_QUEUE.getWaiting(); 
+        await ACTIVE_QUEUE.addBulk(rawLogs.map(log => ({data: {data: log}})));
+        return res.json({ message: 'All Logs added'});
+        }     
+     catch (err) { 
+        console.error("Error queuing all logs:", err);
+        return res.status(500).send("Error queuing all logs");
+     }
+});
+app.get('/rm-all-logs', async (req, res) => {   
+    try {
+        await ACTIVE_QUEUE.obliterate({ force: true });
+        return res.json({ message: 'All jobs removes'});
+        }     
+     catch (err) { 
+        console.error("Error removing all jobs:", err);
+        return res.status(500).send("Error removing all jobs");
+     }
 });
 
 app.get('/add-log', async (req, res) => {   
@@ -151,7 +179,7 @@ app.get('/rem-log', async (req, res) => {
         if (jobToRemove) {
             await ACTIVE_QUEUE.removeJobs(jobToRemove.id);  // Remove the job using its ID!
             res.json({ message: 'Log removed', id: jobToRemove.id });
-            console.log("Log Removed. Job ID:", jobToRemove.id, "Log content:", logToRemove);
+            console.log("Log Removed. Job ID:", jobToRemove.id);
         } else {
             res.status(404).json({ error: 'Log not found in queue' }); // Handle not found
         }            

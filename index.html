@@ -34,7 +34,7 @@
       }
       #raw-logs-list, #active-logs-list {
           min-height: 100px; /* Or whatever minimum height you want */
-           min-width: 200px;  
+           min-width: 500px;  
       }
   </style>
   </head>
@@ -65,7 +65,8 @@
   </div>
   <div id="log-management-section">
     <h2>Log Management</h2>
-    <!-- <button id="toggle-logs">Show Active Logs</button>  </button>  -->
+    <button id="add-all-logs">Select All for Processing</button>  </button>  
+    <button id="rm-all-logs">Remove All from Processing</button>  </button> 
     <table id="log-table">
       <thead>
         <tr>
@@ -86,6 +87,12 @@
         </tr>
       </tbody>
     </table>
+  </div> <select id="logs-per-page">
+    <option value="5">5</option>
+    <option value="10">10</option>
+    <option value="25">25</option>
+    <option value="50">50</option>
+  </select> </div>
 </div>
   <div id="stixVisualization">
     <p>Select which STIX (2.1 only) Bundle from Redis youd like to visualize</p>
