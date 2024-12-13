@@ -61,17 +61,27 @@
   </div>
   <div id="log-management-section">
     <h2>Log Management</h2>
-    <div class="columns">
-        <div class="column" id="raw-logs">
-            <h3>RAW Logs</h3>
-            <ul id="raw-logs-list"></ul>
-        </div>
-        <div id = "pagination"> </div> </div>
-        <div class="column" id="active-logs" ondrop="dropLog(event)" ondragover="allowDrop(event)">
-            <h3>ACTIVE Logs</h3>
-            <ul id="active-logs-list"></ul>
-        </div>
-    </div>
+    <!-- <button id="toggle-logs">Show Active Logs</button>  </button>  -->
+    <table id="log-table">
+      <thead>
+        <tr>
+          <th>Raw</th>
+          <th>Active</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>  <!-- Use a single row -->
+          <td>  
+            <div id="raw-logs">  </div> <ul id="raw-logs-list"></ul> </ul>
+              <div id="pagination-raw"></div>
+          </td>
+          <td>  
+            <div id="active-logs"> </div> <ul id="active-logs-list"></ul> </ul>
+              <div id="pagination-active"></div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
 </div>
   <div id="stixVisualization">
     <p>Select which STIX (2.1 only) Bundle from Redis youd like to visualize</p>

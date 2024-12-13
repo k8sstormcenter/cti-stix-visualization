@@ -17,26 +17,9 @@ require.config({
     }
 });
 
-function allowDrop(ev) { ev.preventDefault(); }
-
-function dragLog(ev) {
-    ev.dataTransfer.setData("text", ev.target.id);
-}
-
 const ACTIVE_LOGS_KEY = 'active_logs';
 const RAW_LOGS_KEY = 'raw_logs';
 const backendUrl = 'http://localhost:3000';
-
-async function dropLog(ev) {
-    ev.preventDefault();
-    const logID = ev.dataTransfer.getData("text");
-
-       await fetch(`${backendUrl}/add-log?id=${logID}`);
-    
-    //displayRawLogs();
-    //displayActiveLogs();
-}
-
 
 require(["domReady!", "stix2viz/stix2viz/stix2viz"], function (document, stix2viz) {
   
@@ -82,8 +65,39 @@ require(["domReady!", "stix2viz/stix2viz/stix2viz"], function (document, stix2vi
         vizStixWrapper(stixBundle, customConfig);
         linkifyHeader();
     });
+    document.getElementById('log-table').addEventListener('dragover', function (event) {
+        // Check if the target is a <ul> element and allow the drop
+        if (event.target.tagName === 'UL') {
+            allowDrop(event);
+        }
+    });
 
+    document.getElementById('log-table').addEventListener('drop', function (event) {
+        // Check if the target is a <ul> element and drop the log
+        if (event.target.tagName === 'UL') {
+            dropLog(event);
+        }
+    });
 
+    function allowDrop(ev) { ev.preventDefault(); }
+
+    function dragLog(ev) {
+        ev.dataTransfer.setData("text", ev.target.id);
+    }
+      
+    // async function dropLog(ev) {
+    //     ev.preventDefault();
+    //     const logID = ev.dataTransfer.getData("text");
+    //     if (ev.target.id === 'raw-logs-list') {
+    //         await fetch(`${backendUrl}/rem-log?id=${logID}`);
+    //     } else if (ev.target.id === 'active-logs-list') {
+    //        await fetch(`${backendUrl}/add-log?id=${logID}`);
+    //     }
+        
+    //     displayRawLogs();
+    //     displayActiveLogs();
+    // }
+    
 
 // Persist data to MongoDB (call this when the user confirms)
 async function persistToMongoDB() {
@@ -341,6 +355,7 @@ async function displayRawLogs(page = 1) {
         const rawLogsList = document.getElementById('raw-logs-list');
         rawLogsList.innerHTML = ''; 
 
+
     rawLogs.logs.forEach(log => {
         const li = document.createElement('li');
         const details = document.createElement('details');
@@ -367,10 +382,18 @@ async function displayRawLogs(page = 1) {
         li.ondragstart = dragLog; 
         rawLogsList.appendChild(li);
     });
-    updatePagination(rawLogs.page, rawLogs.perPage, rawLogs.total);
+    updatePagination(rawLogs.page, rawLogs.perPage, rawLogs.total, 'raw-logs-list');
+    const selectAllButtonRaw = document.createElement('button');
+    selectAllButtonRaw.textContent = 'Select All';
+    selectAllButtonRaw.addEventListener('click', () => {
+        selectAllLogs('raw-logs-list');
+    });
+    const rawLogsDiv = document.getElementById("raw-logs"); //Get the div where the selectAll button will be inserted
+    rawLogsDiv.insertAdjacentElement('beforeend', selectAllButtonRaw)
     } catch (error) {
         console.error("Error fetching raw logs:", error);
     }
+    
 };
 
 async function displayActiveLogs(page = 1) {
@@ -409,18 +432,51 @@ async function displayActiveLogs(page = 1) {
         li.ondragstart = dragLog; 
         actLogsList.appendChild(li);
     });
-    updatePagination(actLogs.page, actLogs.perPage, actLogs.total);
+    updatePagination(actLogs.page, actLogs.perPage, actLogs.total,'active-logs-list');
+    const selectAllButtonActive = document.createElement('button');
+    selectAllButtonActive.textContent = 'Select All';
+    selectAllButtonActive.addEventListener('click', () => {
+        selectAllLogs('active-logs-list'); // Call with the ID of the active logs list
+    });
+    const activeLogsDiv = document.getElementById("active-logs"); //Get the div where the selectAll button will be inserted
+    activeLogsDiv.insertAdjacentElement('beforeend', selectAllButtonActive)
 }
     catch (error) {
         console.error("Error fetching active logs:", error);
     }
 }
 
+function selectAllLogs(listId) {
+    const listItems = document.querySelectorAll(`#${listId} li`); // Select LIs within correct list
+    let allSelected = true;
+
+    listItems.forEach(item => {
+        if (!item.classList.contains('selected')) {
+            allSelected = false;
+            return; //Can break forEach loop
+        }
+    });
+
+
+    listItems.forEach(item => {
+        if (allSelected) {
+            item.classList.remove('selected');
+        } else {
+            item.classList.add('selected');
+        }
+    });
+
+}
 
 
 
-const rawLogsDiv = document.getElementById('raw-logs');
-const activeLogsDiv = document.getElementById('active-logs');
+    const rawLogsDiv = document.getElementById('raw-logs');
+    const activeLogsDiv = document.getElementById('active-logs');
+    const toggleButton = document.getElementById('toggle-logs');
+    const selectAllButton = document.getElementById('select-all');
+
+
+
 
 // Add the event listeners
 rawLogsDiv.addEventListener('drop', dropLog);
@@ -431,8 +487,22 @@ activeLogsDiv.addEventListener('dragover', allowDrop);
 displayRawLogs().catch(err => console.error('Failed to raw logs initially:', err));;
 displayActiveLogs().catch(err => console.error('Failed to active logs initially:', err));;
 
-function updatePagination(page, perPage, total) {
-    const pagination = document.getElementById('pagination');  // Assumes you have a <div id="pagination"></div>
+async function dropLog(ev) {
+    ev.preventDefault();
+    const logID = ev.dataTransfer.getData("text");
+    if (ev.target.id === 'raw-logs-list') {
+        await fetch(`${backendUrl}/rem-log?id=${logID}`);
+    } else if (ev.target.id === 'active-logs-list') {
+       await fetch(`${backendUrl}/add-log?id=${logID}`);
+    }
+    
+    displayRawLogs();
+    displayActiveLogs();
+}
+
+function updatePagination(page, perPage, total, listId) {
+    const paginationId = (listId === 'raw-logs-list') ? 'pagination-raw' : 'pagination-active'; // Determine pagination ID
+    const pagination = document.getElementById(paginationId); // Get the correct pagination div
     pagination.innerHTML = ''; 
 
     const totalPages = Math.ceil(total / perPage);

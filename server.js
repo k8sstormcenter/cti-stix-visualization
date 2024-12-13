@@ -105,7 +105,6 @@ app.get('/active-logs', async (req, res) => {
         const jobs = await ACTIVE_QUEUE.getWaiting(startIndex, perPage); //Get a page of active logs
         const totalJobs = await ACTIVE_QUEUE.getWaitingCount();
 
-
         //Extract job data
         const logs = jobs.map(job => job.data.data);
 
@@ -122,10 +121,17 @@ app.get('/active-logs', async (req, res) => {
 
 app.get('/add-log', async (req, res) => {      
     try {
-        const key = req.query.id;
-        const table = req.query.table;
-        console.log("Adding log:", key, " to table:", table);
-        ACTIVE_QUEUE.add({ data: key });
+        const logToAdd = req.query.id;
+        const jobs = await ACTIVE_QUEUE.getWaiting();
+ 
+        const jobToAdd = jobs.find(job => job.data.data === logToAdd);
+        if (jobToAdd) {
+            res.json({ message: 'Log already active', id: jobToAdd.id });
+            
+        } else {
+            await ACTIVE_QUEUE.add(logToAdd);
+            console.log("Log Added")
+        }  
         res.json({ message: 'Log added', id: key });
     } catch (err) { 
         console.error("Error queuing log:", err);
@@ -134,25 +140,23 @@ app.get('/add-log', async (req, res) => {
 });
 app.get('/rem-log', async (req, res) => {      
     try {
-        const key = req.query.id;
-        const table = req.query.table;
-        const log = await redisClient.xreadgroup('GROUP', 'consumerGroup', 'consumerId', 'STREAMS', table, '>');  
+        const logToRemove = req.query.id;
+        const jobs = await ACTIVE_QUEUE.getWaiting();
+ 
+        const jobToRemove = jobs.find(job => job.data.data === logToRemove); // Find job by log content
 
-        if (log) {
-           const logId = log[0][1][0][1]['log'] 
-
-           await redisClient.xack(table, 'consumerGroup', log[0][1][0][0]);
-           await redisClient.xdel(table, log[0][1][0][0])
-           res.json({ message: 'Log removed', id: logId }); 
+        if (jobToRemove) {
+            await ACTIVE_QUEUE.removeJobs(jobToRemove.id);  // Remove the job using its ID!
+            res.json({ message: 'Log removed', id: jobToRemove.id });
+            console.log("Log Removed. Job ID:", jobToRemove.id, "Log content:", logToRemove);
         } else {
-          res.status(404).json({ message: 'No logs found' }); // Handle cases where there are no logs
-        }
+            res.status(404).json({ error: 'Log not found in queue' }); // Handle not found
+        }            
     } catch (err) { 
         console.error("Error removing log:", err);
         res.status(500).send("Error removing log");
      }
 });
-
 
 
 app.get('/redis-keys', async (req, res) => {
