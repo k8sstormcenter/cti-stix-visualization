@@ -20,6 +20,7 @@ require.config({
 const ACTIVE_LOGS_KEY = 'active_logs';
 const RAW_LOGS_KEY = 'raw_logs';
 const backendUrl = 'http://localhost:3000';
+const pythonUrl = 'http://localhost:8000';
 let logsPerPage = 5;
 
 require(["domReady!", "stix2viz/stix2viz/stix2viz"], function (document, stix2viz) {
@@ -58,7 +59,6 @@ require(["domReady!", "stix2viz/stix2viz/stix2viz"], function (document, stix2vi
         })
         .catch(err => console.error("Error fetching Redis keys:", err));
 
-    // Event listener for the visualize button
     document.getElementById('visualizeButton').addEventListener('click', async () => {
         const selectedKey = document.getElementById('redisKeys').value;
         const stixBundle = await getStixBundle(selectedKey);
@@ -67,14 +67,12 @@ require(["domReady!", "stix2viz/stix2viz/stix2viz"], function (document, stix2vi
         linkifyHeader();
     });
     document.getElementById('log-table').addEventListener('dragover', function (event) {
-        // Check if the target is a <ul> element and allow the drop
         if (event.target.tagName === 'UL') {
             allowDrop(event);
         }
     });
 
     document.getElementById('log-table').addEventListener('drop', function (event) {
-        // Check if the target is a <ul> element and drop the log
         if (event.target.tagName === 'UL') {
             dropLog(event);
         }
@@ -279,17 +277,16 @@ async function editAttackBundle(bundle)
 
         } catch (err) {
             console.error("Error modifying bundle:", err);
-            alert(`Error modifying attack pattern:\n ${err}`); // User-friendly error message
+            alert(`Error modifying attack pattern:\n ${err}`); 
         }
     }
 }
 
 
-// Function to delete an attack bundle
 async function deleteAttackBundle(bundleId)
 {
     try{
-        const response = await fetch(`${backendUrl}/delete-attack-bundles`, { // New endpoint for modification
+        const response = await fetch(`${backendUrl}/delete-attack-bundles`, { 
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ data: {id:bundleId}})
@@ -300,18 +297,15 @@ async function deleteAttackBundle(bundleId)
         displayAttackBundles();
     } catch (err) {
         console.error("Error deleting bundle:", err);
-        alert(`Error deleting attack pattern:\n ${err}`); // User-friendly error message
+        alert(`Error deleting attack pattern:\n ${err}`); 
     }
 }
 
-
-// Event listeners for buttons
 document.getElementById('refresh-patterns').addEventListener('click', displayAttackBundles);
 document.getElementById('persist-patterns').addEventListener('click', persistToMongoDB);
 
 displayAttackBundles();
 
-    // Init some stuff
     let view = null;
     let uploader = document.getElementById('uploader');
     let canvasContainer = document.getElementById('canvas-container');
@@ -458,6 +452,26 @@ async function dropLog(ev) {
     displayRawLogs();
     displayActiveLogs();
 }
+
+async function transformToStix() {
+    let rediskey =ACTIVE_LOGS_KEY ;
+    let startinterval = 0;
+    let endinterval   = -1;
+    rediskey      = document.getElementById('redisKey').value;
+    startinterval = document.getElementById('startinterval').value;
+    endinterval   = document.getElementById('endinterval').value;
+
+    try {
+        await fetch(`${pythonUrl}/convert_to_stix?start=${startinterval}&end=${endinterval}&r=${rediskey}`);
+        displayTransformedLogs();
+    } catch (error) {
+        console.error("Error transforming logs:", error);
+    }
+}
+
+document.getElementById('TransformToStix').addEventListener('click', async () => {
+    await transformToStix();
+});
 
 function updatePagination(page, perPage, total, listId) {
     const paginationId = (listId === 'raw-logs-list') ? 'pagination-raw' : 'pagination-active'; // Determine pagination ID

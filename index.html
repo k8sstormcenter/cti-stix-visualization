@@ -94,6 +94,18 @@
     <option value="50">50</option>
   </select> </div>
 </div>
+<div>  </div>
+    <h3>Transform Logs to STIX</h3>
+    Redis Key: <input type="text" id="redisKey" value="active_logs"><br>  </input> <label for="redisKey"> </label>
+    Start Index: <input type="number" id="startinterval" value="0"> </input> <br>
+    End Index: <input type="number" id="endinterval" value="-1"> </input><br>
+    <button id="TransformToStix">Transform to STIX</button>
+
+    </div> <div id="transformed-logs">
+    <h3>Transformed Logs (STIX)</h3>
+    <pre id="transformed-logs-content"></pre> </div>
+
+
   <div id="stixVisualization">
     <p>Select which STIX (2.1 only) Bundle from Redis youd like to visualize</p>
     <select id="redisKeys"></select> <button id="visualizeButton">Visualize</button>
