@@ -455,14 +455,10 @@ async function dropLog(ev) {
 
 async function transformToStix() {
     let rediskey =ACTIVE_LOGS_KEY ;
-    let startinterval = 0;
-    let endinterval   = -1;
     rediskey      = document.getElementById('redisKey').value;
-    startinterval = document.getElementById('startinterval').value;
-    endinterval   = document.getElementById('endinterval').value;
-
     try {
-        await fetch(`${pythonUrl}/convert_to_stix?start=${startinterval}&end=${endinterval}&r=${rediskey}`);
+        await fetch(`${backendUrl}/stix-transform?queue=${rediskey}`);
+        //await fetch(`${pythonUrl}/convert_to_stix?start=${startinterval}&end=${endinterval}&r=${rediskey}`);
         displayTransformedLogs();
     } catch (error) {
         console.error("Error transforming logs:", error);
