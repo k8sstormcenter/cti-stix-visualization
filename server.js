@@ -3,6 +3,7 @@ const Redis = require('ioredis');
 const cors = require('cors');
 const path = require('path');
 const Queue = require('bull');
+const { log } = require('console');
 const MongoClient = require('mongodb').MongoClient;
 // Make sure your mongodb client is correctly initialized!
 const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017'; // Replace with your MongoDB connection string
@@ -30,6 +31,11 @@ const REDIS_PATTERNKEY = process.env.REDIS_PATTERNKEY || 'tetra_pattern';
 const RAW_LOGS_KEY = process.env.RAW_LOGS_KEY || 'raw_logs';
 const TETRA = process.env.TETRA || 'tetra';
 const ACTIVE_LOGS_KEY = process.env.ACTIVE_LOGS_KEY|| 'active_logs';
+const BENIGN_LOGS_KEY = 'benign_logs'; 
+
+const LIGHTENINGROD = process.env.LIGHTENINGROD || 'http://localhost:8000';
+
+
 
 const redisClient = new Redis({ host: redisHost, port: redisPort });
 //confirm redis connection 
@@ -65,10 +71,8 @@ app.get('/raw-logs', async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1; 
         const perPage = parseInt(req.query.perPage) || 5; 
-
         const startIndex = (page - 1) * perPage;
         const endIndex = startIndex + perPage - 1;
-
         const rawLogs = await redisClient.lrange(RAW_LOGS_KEY, startIndex, endIndex);
         const totalLogs = await redisClient.llen(RAW_LOGS_KEY); 
 
@@ -100,12 +104,10 @@ app.get('/active-logs', async (req, res) => {
         const perPage = parseInt(req.query.perPage) || 5; 
 
         const startIndex = (page - 1) * perPage;
-        const endIndex = startIndex + perPage - 1;
 
-        const jobs = await ACTIVE_QUEUE.getWaiting(startIndex, perPage); //Get a page of active logs
+        const jobs = await ACTIVE_QUEUE.getWaiting(startIndex, perPage); 
         const totalJobs = await ACTIVE_QUEUE.getWaitingCount();
 
-        //Extract job data
         const logs = jobs.map(job => job.data.data);
 
         res.json({
@@ -122,13 +124,39 @@ app.get('/active-logs', async (req, res) => {
 
 });
 
+app.get('/baseline-init-all', async (req, res) => {
+    try {
+        const rawLogs = await redisClient.lrange(TETRA, 0, -1); // tetra is a list
+        const pipeline = redisClient.pipeline();
+        for (const log of rawLogs) {  
+            try {
+                const md5 = JSON.parse(log).md5_hash;  
+                console.log("md5", md5);
+                if (md5) {  
+                    if (!await redisClient.hexists(BENIGN_LOGS_KEY, md5)){
+                        pipeline.hset(BENIGN_LOGS_KEY, md5, Date.now());  }
+                }
+            } catch (err) { console.error("Error in baseline-init-all pipeline hset:", err); }
+        } 
+        await pipeline.exec();
+        
+        console.log("Baseline initialized with all logs");
+        res.json({ message: 'Baseline initialized with all logs' });
+    } catch (err) {
+        console.error("Error initializing baseline with all logs:", err);
+        res.status(500).send("Error initializing baseline with all logs");
+    }
+});
 
 app.get('/add-all-logs', async (req, res) => {   
  
     try {
         const rawLogs = await redisClient.lrange(RAW_LOGS_KEY,0,-1);
         await ACTIVE_QUEUE.getWaiting(); 
-        await ACTIVE_QUEUE.addBulk(rawLogs.map(log => ({data: {data: log}})));
+        //only ever add the logs that are not marked benign (by md5)
+        const md5s = await redisClient.hkeys(BENIGN_LOGS_KEY);
+        const filteredLogs = rawLogs.filter(log => !md5s.includes(JSON.parse(log).md5_hash));
+        await ACTIVE_QUEUE.addBulk(filteredLogs.map(log => ({data: {data: log}})));
         return res.json({ message: 'All Logs added'});
         }     
      catch (err) { 
@@ -146,6 +174,33 @@ app.get('/rm-all-logs', async (req, res) => {
         return res.status(500).send("Error removing all jobs");
      }
 });
+// This needs a rewirte !! the stix lib only exists in python , so we re calling it here as API
+// this will likely cause perf issues very soon
+
+app.get('/stix-transform', async (req, res) => {
+    try {
+        q = req.query.queue.toString().trim();
+        console.log(q);
+        const jobs = await ACTIVE_QUEUE.getWaiting(); 
+        // 
+        for (const job of jobs) {
+        const encodedData = encodeURIComponent(job.data.data);
+        request = await fetch(`${LIGHTENINGROD}/convert_single_to_stix?log=${encodedData}`);
+        }}
+        catch (err) { 
+            console.error("Error transforming logs:", err);
+            return res.status(500).send("Error transforming logs");
+         }
+        try{
+        request = await fetch(`${LIGHTENINGROD}/bundle_for_viz`);}
+        catch (err) { 
+            console.error("Error bundleing logs:", err);
+            return res.status(500).send("Error bundeling logs");
+         }
+        res.json({ message: 'Logs transformed'});
+});
+
+
 
 app.get('/add-log', async (req, res) => {   
     if(req.query.id) {  

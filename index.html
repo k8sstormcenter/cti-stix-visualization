@@ -67,6 +67,7 @@
     <h2>Log Management</h2>
     <button id="add-all-logs">Select All for Processing</button>  </button>  
     <button id="rm-all-logs">Remove All from Processing</button>  </button> 
+    <button id="baseline-all-logs">Mark All as Baseline</button>  </button>
     <table id="log-table">
       <thead>
         <tr>
@@ -94,6 +95,16 @@
     <option value="50">50</option>
   </select> </div>
 </div>
+<div>  </div>
+    <h3>Transform Logs to STIX</h3>
+    Redis Key: <input type="text" id="redisKey" value="active_logs"><br>  </input> <label for="redisKey"> </label>
+    <button id="TransformToStix">Transform to STIX</button>
+
+    </div> <div id="transformed-logs">
+    <h3>Transformed Logs (STIX)</h3>
+    <pre id="transformed-logs-content"></pre> </div>
+
+
   <div id="stixVisualization">
     <p>Select which STIX (2.1 only) Bundle from Redis youd like to visualize</p>
     <select id="redisKeys"></select> <button id="visualizeButton">Visualize</button>
