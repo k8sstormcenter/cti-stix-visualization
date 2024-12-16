@@ -468,6 +468,15 @@ async function transformToStix() {
 document.getElementById('TransformToStix').addEventListener('click', async () => {
     await transformToStix();
 });
+document.getElementById('baseline-all-logs').addEventListener('click', async () => {
+    try {
+        await fetch(`${backendUrl}/baseline-init-all`);
+        displayRawLogs();
+        displayActiveLogs();
+    } catch (error) {
+        console.error("Error transforming logs:", error);
+    }
+});
 
 function updatePagination(page, perPage, total, listId) {
     const paginationId = (listId === 'raw-logs-list') ? 'pagination-raw' : 'pagination-active'; // Determine pagination ID

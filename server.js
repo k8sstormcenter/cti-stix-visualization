@@ -133,7 +133,8 @@ app.get('/baseline-init-all', async (req, res) => {
                 const md5 = JSON.parse(log).md5_hash;  
                 console.log("md5", md5);
                 if (md5) {  
-                    pipeline.hset(BENIGN_LOGS_KEY, md5, Date.now());  
+                    if (!await redisClient.hexists(BENIGN_LOGS_KEY, md5)){
+                        pipeline.hset(BENIGN_LOGS_KEY, md5, Date.now());  }
                 }
             } catch (err) { console.error("Error in baseline-init-all pipeline hset:", err); }
         } 

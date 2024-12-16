@@ -67,6 +67,7 @@
     <h2>Log Management</h2>
     <button id="add-all-logs">Select All for Processing</button>  </button>  
     <button id="rm-all-logs">Remove All from Processing</button>  </button> 
+    <button id="baseline-all-logs">Mark All as Baseline</button>  </button>
     <table id="log-table">
       <thead>
         <tr>
@@ -97,8 +98,6 @@
 <div>  </div>
     <h3>Transform Logs to STIX</h3>
     Redis Key: <input type="text" id="redisKey" value="active_logs"><br>  </input> <label for="redisKey"> </label>
-    Start Index: <input type="number" id="startinterval" value="0"> </input> <br>
-    End Index: <input type="number" id="endinterval" value="-1"> </input><br>
     <button id="TransformToStix">Transform to STIX</button>
 
     </div> <div id="transformed-logs">
