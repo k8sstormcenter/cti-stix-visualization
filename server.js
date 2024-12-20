@@ -2,7 +2,7 @@ const express = require('express');
 const Redis = require('ioredis');
 const cors = require('cors');
 const path = require('path');
-const Queue = require('bull');
+//const Queue = require('bull');
 const { log } = require('console');
 const MongoClient = require('mongodb').MongoClient;
 // Make sure your mongodb client is correctly initialized!
@@ -30,7 +30,7 @@ const redisKeyPrefix = process.env.REDIS_KEY_PREFIX || 'tetrastix';
 const REDIS_PATTERNKEY = process.env.REDIS_PATTERNKEY || 'tetra_pattern';
 const RAW_LOGS_KEY = process.env.RAW_LOGS_KEY || 'raw_logs';
 const TETRA = process.env.TETRA || 'tetra';
-const ACTIVE_LOGS_KEY = process.env.ACTIVE_LOGS_KEY|| 'active_logs';
+const ACTIVE_QUEUE_KEY = process.env.ACTIVE_LOGS_KEY|| 'active_logs';
 const BENIGN_LOGS_KEY = 'benign_logs'; 
 
 const LIGHTENINGROD = process.env.LIGHTENINGROD || 'http://localhost:8000';
@@ -52,9 +52,28 @@ const redisConfig = {
       host: 'localhost', // Redis server host
     },
   };
-const ACTIVE_QUEUE = new Queue(ACTIVE_LOGS_KEY, redisConfig);
+//const ACTIVE_QUEUE = new Queue(ACTIVE_LOGS_KEY, redisConfig);
+// make sure the queue on redis is created
+//ACTIVE_QUEUE.isReady().then(() => {
+//    console.log('Active logs queue is ready');
+//  });
+
+
 app.use(cors());
 app.use(express.static(path.join(__dirname)));
+
+app.get('/health', async (req, res) => { // New health endpoint
+    try {
+      if (redisClient.status === 'ready' ){
+        //&& db.serverConfig.isConnected()) {
+        res.status(200).send("OK"); // Send 200 if all is good
+      } else {
+        res.status(503).send("Not Ready"); // 503 Service Unavailable
+      }
+    } catch (err) {
+      res.status(500).send("Error");
+    }
+  });
 
 
 app.get('/reload-tetra', async (req, res) => {
@@ -90,7 +109,7 @@ app.get('/raw-logs', async (req, res) => {
 
 app.get('/active-logs-count', async (req, res) => {
     try {
-        const count = await ACTIVE_QUEUE.getWaitingCount(); //Gets the total number of jobs waiting in the active logs queue
+        const count = await redisClient.llen(ACTIVE_QUEUE_KEY); //Gets the total number of jobs waiting in the active logs queue
         res.json({ total: count });
     } catch (err) {
         console.error("Error getting active logs count:", err);
@@ -99,35 +118,25 @@ app.get('/active-logs-count', async (req, res) => {
 });
 
 app.get('/active-logs', async (req, res) => {
+    //if (redisClient.exists("bull:active_logs:id")) {
     try {
         const page = parseInt(req.query.page) || 1;
         const perPage = parseInt(req.query.perPage) || 5; 
-
         const startIndex = (page - 1) * perPage;
-
-        if (ACTIVE_QUEUE) { // Check if the queue is initialized
-            jobs = await ACTIVE_QUEUE.getWaiting(startIndex, perPage);
-            totalJobs = await ACTIVE_QUEUE.getWaitingCount();
-            logs = jobs.map(job => job.data.data);
-        } else {
-            console.warn("ACTIVE_QUEUE is not initialized. Returning empty results.");
-            jobs = [];
-            totalJobs = 0;
-            logs = [];
-        }
-
+        const logs = await redisClient.lrange(ACTIVE_QUEUE_KEY, startIndex, startIndex + perPage - 1);
+        const totalLogs = await redisClient.llen(ACTIVE_QUEUE_KEY);
         res.json({
             logs: logs,
             page,
             perPage,
-            total: totalJobs
+            total: totalLogs
         });
-
     } catch (err) {
         console.error("Error fetching active logs:", err);
         res.status(500).json({ error: "Error fetching active logs" });
     }
 
+//}
 });
 
 app.get('/baseline-init-all', async (req, res) => {
@@ -154,25 +163,34 @@ app.get('/baseline-init-all', async (req, res) => {
     }
 });
 
-app.get('/add-all-logs', async (req, res) => {   
- 
+app.get('/add-all-logs', async (req, res) => {
     try {
-        const rawLogs = await redisClient.lrange(RAW_LOGS_KEY,0,-1);
-        await ACTIVE_QUEUE.getWaiting(); 
-        //only ever add the logs that are not marked benign (by md5)
+        const rawLogs = await redisClient.lrange(RAW_LOGS_KEY, 0, -1);
         const md5s = await redisClient.hkeys(BENIGN_LOGS_KEY);
         const filteredLogs = rawLogs.filter(log => !md5s.includes(JSON.parse(log).md5_hash));
-        await ACTIVE_QUEUE.addBulk(filteredLogs.map(log => ({data: {data: log}})));
-        return res.json({ message: 'All Logs added'});
-        }     
-     catch (err) { 
-        console.error("Error queuing all logs:", err);
-        return res.status(500).send("Error queuing all logs");
-     }
+
+        if (filteredLogs.length > 0) {
+            // Use pipeline for efficiency
+            const pipeline = redisClient.pipeline();
+            filteredLogs.forEach(log => pipeline.rpush(ACTIVE_QUEUE_KEY, log));
+            await pipeline.exec();
+
+            console.log(`${filteredLogs.length} logs added to the queue.`);
+            return res.json({ message: 'Logs added' });
+        } else {
+            console.log("No new logs to add.");
+            return res.json({ message: 'No new logs to add' }); 
+        }
+
+    } catch (err) {
+        console.error("Error queuing logs:", err);
+        return res.status(500).send("Error queuing logs");
+    }
 });
+
 app.get('/rm-all-logs', async (req, res) => {   
     try {
-        await ACTIVE_QUEUE.obliterate({ force: true });
+        await redisClient.del(ACTIVE_QUEUE_KEY); 
         return res.json({ message: 'All jobs removes'});
         }     
      catch (err) { 
@@ -208,46 +226,37 @@ app.get('/stix-transform', async (req, res) => {
 
 
 
-app.get('/add-log', async (req, res) => {   
-    if(req.query.id) {  
-    try {
-        const logToAdd = req.query.id;
-        const jobs = await ACTIVE_QUEUE.getWaiting(); 
-        const jobToAdd = jobs.find(job => job.data.data === logToAdd);
-        if (jobToAdd) {
-            return res.json({ message: 'Log already active', id: jobToAdd.id });
-            
-        } else {
-            await ACTIVE_QUEUE.add({data: logToAdd});
-            console.log("Log Added")
-            return res.json({ message: 'Log added'});
-        }     
-    } catch (err) { 
-        console.error("Error queuing log:", err);
-        return res.status(500).send("Error queuing log");
-     }} else {
+app.get('/add-log', async (req, res) => {
+    if (req.query.id) {
+        try {
+            const logToAdd = req.query.id;
+            await redisClient.rpush(ACTIVE_QUEUE_KEY, logToAdd); // Directly add the log (string)
+            console.log("Log Added");
+            return res.json({ message: 'Log added' });
+        } catch (err) {
+            console.error("Error queuing log:", err);
+            return res.status(500).send("Error queuing log");
+        }
+    } else {
         return res.status(400).send("Missing data");
-     }
+    }
 });
 
-app.get('/rem-log', async (req, res) => {      
+app.get('/rem-log', async (req, res) => {
     try {
         const logToRemove = req.query.id;
-        const jobs = await ACTIVE_QUEUE.getWaiting();
- 
-        const jobToRemove = jobs.find(job => job.data.data === logToRemove); // Find job by log content
-
-        if (jobToRemove) {
-            await ACTIVE_QUEUE.removeJobs(jobToRemove.id);  // Remove the job using its ID!
-            res.json({ message: 'Log removed', id: jobToRemove.id });
-            console.log("Log Removed. Job ID:", jobToRemove.id);
+        //lrem removes all instances of that log, that is why we can simply call it with 1
+        const removedCount = await redisClient.lrem(ACTIVE_QUEUE_KEY, 1, logToRemove);
+        if (removedCount > 0) {
+            res.json({ message: 'Log removed'});
+            console.log("Log Removed. Count:", removedCount); // removedCount for debug
         } else {
             res.status(404).json({ error: 'Log not found in queue' }); // Handle not found
-        }            
-    } catch (err) { 
+        }
+    } catch (err) {
         console.error("Error removing log:", err);
         res.status(500).send("Error removing log");
-     }
+    }
 });
 
 
