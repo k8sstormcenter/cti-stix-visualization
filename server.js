@@ -105,10 +105,16 @@ app.get('/active-logs', async (req, res) => {
 
         const startIndex = (page - 1) * perPage;
 
-        const jobs = await ACTIVE_QUEUE.getWaiting(startIndex, perPage); 
-        const totalJobs = await ACTIVE_QUEUE.getWaitingCount();
-
-        const logs = jobs.map(job => job.data.data);
+        if (ACTIVE_QUEUE) { // Check if the queue is initialized
+            jobs = await ACTIVE_QUEUE.getWaiting(startIndex, perPage);
+            totalJobs = await ACTIVE_QUEUE.getWaitingCount();
+            logs = jobs.map(job => job.data.data);
+        } else {
+            console.warn("ACTIVE_QUEUE is not initialized. Returning empty results.");
+            jobs = [];
+            totalJobs = 0;
+            logs = [];
+        }
 
         res.json({
             logs: logs,
