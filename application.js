@@ -20,7 +20,6 @@ require.config({
 const ACTIVE_LOGS_KEY = 'active_logs';
 const RAW_LOGS_KEY = 'raw_logs';
 const backendUrl = 'http://localhost:3000';
-const pythonUrl = 'http://localhost:8000';
 let logsPerPage = 5;
 
 require(["domReady!", "stix2viz/stix2viz/stix2viz"], function (document, stix2viz) {
