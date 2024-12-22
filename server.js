@@ -198,19 +198,12 @@ app.get('/rm-all-logs', async (req, res) => {
         return res.status(500).send("Error removing all jobs");
      }
 });
-// This needs a rewirte !! the stix lib only exists in python , so we re calling it here as API
-// this will likely cause perf issues very soon
 
 app.get('/stix-transform', async (req, res) => {
     try {
         q = req.query.queue.toString().trim();
-        console.log(q);
-        const jobs = await ACTIVE_QUEUE.getWaiting(); 
-        // 
-        for (const job of jobs) {
-        const encodedData = encodeURIComponent(job.data.data);
-        request = await fetch(`${LIGHTENINGROD}/convert_single_to_stix?log=${encodedData}`);
-        }}
+        request = await fetch(`${LIGHTENINGROD}/convert_list_to_stix?queue=${q}`);
+        }
         catch (err) { 
             console.error("Error transforming logs:", err);
             return res.status(500).send("Error transforming logs");
