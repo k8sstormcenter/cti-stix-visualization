@@ -20,15 +20,28 @@ require.config({
 const ACTIVE_LOGS_KEY = 'active_logs';
 const RAW_LOGS_KEY = 'raw_logs';
 const backendUrl = 'http://localhost:3000';
+const stixdedup = 'tetrastix';
+const stixindiv = 'tetra_bundle';
 let logsPerPage = 5;
+
+let selectedRedisTable = stixdedup;
 
 require(["domReady!", "stix2viz/stix2viz/stix2viz"], function (document, stix2viz) {
   
 
-    async function getRedisKeys() {
+    async function getRedisKeys(tableName) {
         try {
-            const response = await fetch(`${backendUrl}/redis-keys`);
+            const response = await fetch(`${backendUrl}/redis-keys?table=${tableName}`);
             const keys = await response.json();
+            const selectElement = document.getElementById('redisKeys');
+            selectElement.innerHTML = ''; // Clear existing options
+    
+            keys.forEach(key => {
+                const option = document.createElement('option');
+                option.value = key;
+                option.text = key;
+                selectElement.add(option);
+            });
             return keys;
         } catch (err) {
             console.error("Error fetching Redis keys:", err);
@@ -36,9 +49,9 @@ require(["domReady!", "stix2viz/stix2viz/stix2viz"], function (document, stix2vi
         }
     }
 
-    async function getStixBundle(key) {
+    async function getStixBundle(key,tableName) {
         try {
-            const response = await fetch(`${backendUrl}/stix-bundle/${key}`);
+            const response = await fetch(`${backendUrl}/stix-bundle/${key}?table=${tableName}`);
             const data = await response.json();
             return data;
         } catch (err) {
@@ -46,21 +59,32 @@ require(["domReady!", "stix2viz/stix2viz/stix2viz"], function (document, stix2vi
             throw err;
         }
     }
-    getRedisKeys()
-        .then(keys => {
-            const selectElement = document.getElementById('redisKeys');
-            keys.forEach(key => {
-                const option = document.createElement('option');
-                option.value = key;
-                option.text = key;
-                selectElement.add(option);
-            });
-        })
-        .catch(err => console.error("Error fetching Redis keys:", err));
+    const tableSelect = document.createElement('select');
+    tableSelect.id = 'redisTables';
+
+    const tableOptions = [stixdedup, stixindiv];
+
+    tableOptions.forEach(tableName => {
+        const option = document.createElement('option');
+        option.value = tableName;
+        option.text = tableName;
+        tableSelect.add(option);
+    });
+
+    const keySelectContainer = document.getElementById('redisKeys').parentNode;
+    keySelectContainer.insertBefore(tableSelect, document.getElementById('redisKeys'));
+
+    getRedisKeys(selectedRedisTable)
+    .catch(err => console.error("Initial key population failed:", err));
+    tableSelect.addEventListener('change', () => {
+        selectedRedisTable = tableSelect.value;
+        getRedisKeys(selectedRedisTable); 
+    }); 
+
 
     document.getElementById('visualizeButton').addEventListener('click', async () => {
         const selectedKey = document.getElementById('redisKeys').value;
-        const stixBundle = await getStixBundle(selectedKey);
+        const stixBundle = await getStixBundle(selectedKey, selectedRedisTable);
         let customConfig = document.getElementById('paste-area-custom-config').value;
         vizStixWrapper(stixBundle, customConfig);
         linkifyHeader();
@@ -457,7 +481,6 @@ async function transformToStix() {
     rediskey      = document.getElementById('redisKey').value;
     try {
         await fetch(`${backendUrl}/stix-transform?queue=${rediskey}`);
-        //await fetch(`${pythonUrl}/convert_to_stix?start=${startinterval}&end=${endinterval}&r=${rediskey}`);
         displayTransformedLogs();
     } catch (error) {
         console.error("Error transforming logs:", error);

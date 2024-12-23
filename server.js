@@ -46,29 +46,18 @@ redisClient.on('connect', () => {
 redisClient.on('error', (err) => {
     console.error('Redis error:', err);
 });
-const redisConfig = {
-    redis: {
-      port: 6379, // Redis server port
-      host: 'localhost', // Redis server host
-    },
-  };
-//const ACTIVE_QUEUE = new Queue(ACTIVE_LOGS_KEY, redisConfig);
-// make sure the queue on redis is created
-//ACTIVE_QUEUE.isReady().then(() => {
-//    console.log('Active logs queue is ready');
-//  });
 
 
 app.use(cors());
 app.use(express.static(path.join(__dirname)));
 
-app.get('/health', async (req, res) => { // New health endpoint
+app.get('/health', async (req, res) => { 
     try {
       if (redisClient.status === 'ready' ){
         //&& db.serverConfig.isConnected()) {
-        res.status(200).send("OK"); // Send 200 if all is good
+        res.status(200).send("OK");
       } else {
-        res.status(503).send("Not Ready"); // 503 Service Unavailable
+        res.status(503).send("Not Ready"); 
       }
     } catch (err) {
       res.status(500).send("Error");
@@ -80,8 +69,8 @@ app.get('/reload-tetra', async (req, res) => {
     const rawLogs = await redisClient.lrange(TETRA, 0, -1);
     //now we replace all the logs in the raw logs key
     await redisClient.del(RAW_LOGS_KEY);
-    if (rawLogs.length > 0) {  // Check if rawLogs is not empty
-        await redisClient.rpush(RAW_LOGS_KEY, ...rawLogs); // Use rpush with spread operator
+    if (rawLogs.length > 0) {  
+        await redisClient.rpush(RAW_LOGS_KEY, ...rawLogs); 
         console.log("Reloaded raw logs from Tetra");
     }
 });
@@ -118,7 +107,6 @@ app.get('/active-logs-count', async (req, res) => {
 });
 
 app.get('/active-logs', async (req, res) => {
-    //if (redisClient.exists("bull:active_logs:id")) {
     try {
         const page = parseInt(req.query.page) || 1;
         const perPage = parseInt(req.query.perPage) || 5; 
@@ -153,8 +141,7 @@ app.get('/baseline-init-all', async (req, res) => {
                 }
             } catch (err) { console.error("Error in baseline-init-all pipeline hset:", err); }
         } 
-        await pipeline.exec();
-        
+        await pipeline.exec();        
         console.log("Baseline initialized with all logs");
         res.json({ message: 'Baseline initialized with all logs' });
     } catch (err) {
@@ -208,13 +195,15 @@ app.get('/stix-transform', async (req, res) => {
             console.error("Error transforming logs:", err);
             return res.status(500).send("Error transforming logs");
          }
-        try{
-        request = await fetch(`${LIGHTENINGROD}/bundle_for_viz`);}
+    try {
+        request = await fetch(`${LIGHTENINGROD}/bundle_for_viz`);
+        console.log("Logs bundled");
+         }
         catch (err) { 
             console.error("Error bundleing logs:", err);
             return res.status(500).send("Error bundeling logs");
          }
-        res.json({ message: 'Logs transformed'});
+    res.json({ message: 'Logs transformed'});
 });
 
 
@@ -252,10 +241,10 @@ app.get('/rem-log', async (req, res) => {
     }
 });
 
-
 app.get('/redis-keys', async (req, res) => {
     try {
-        const keys = await redisClient.hkeys(redisKeyPrefix);
+        const tableName = req.query.table || redisKeyPrefix; 
+        const keys = await redisClient.hkeys(tableName);
         console.log("Fetching Redis keys:", keys);
         res.json(keys);
     } catch (err) {
@@ -264,12 +253,12 @@ app.get('/redis-keys', async (req, res) => {
     }
 });
 
-// Endpoint to fetch STIX bundle from Redis
 app.get('/stix-bundle/:key', async (req, res) => {
     const key=  req.params.key;
+    const tableName = req.query.table || redisKeyPrefix; 
     try {
         console.log("Fetching STIX bundle with key:", key);
-        const data = await redisClient.hget(redisKeyPrefix, key);
+        const data = await redisClient.hget(tableName, key);
         res.json(data);
     } catch (err) {
         console.error("Error fetching STIX bundle:", err);
