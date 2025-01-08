@@ -81,7 +81,25 @@ require(["domReady!", "stix2viz/stix2viz/stix2viz"], function (document, stix2vi
         getRedisKeys(selectedRedisTable); 
     }); 
 
-
+    document.getElementById('reload-tetra').addEventListener('click', async () => {
+        try {
+            const response = await fetch(`${backendUrl}/reload-tetra`);  
+            if (!response.ok) {
+                const message = `Error reloading Tetragon logs: ${response.status} ${response.statusText}`;
+                console.error(message);
+                alert(message); 
+                return;  
+            }
+            const data = await response.json();
+            console.log(data.message); 
+            displayRawLogs();
+            displayActiveLogs();
+            
+        } catch (error) {
+            console.error("Error during fetch:", error);
+            alert("An error occurred while reloading logs.");
+        }
+    });
     document.getElementById('visualizeButton').addEventListener('click', async () => {
         const selectedKey = document.getElementById('redisKeys').value;
         const stixBundle = await getStixBundle(selectedKey, selectedRedisTable);
