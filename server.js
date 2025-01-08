@@ -66,12 +66,19 @@ app.get('/health', async (req, res) => {
 
 
 app.get('/reload-tetra', async (req, res) => {
-    const rawLogs = await redisClient.lrange(TETRA, 0, -1);
-    //now we replace all the logs in the raw logs key
-    await redisClient.del(RAW_LOGS_KEY);
-    if (rawLogs.length > 0) {  
-        await redisClient.rpush(RAW_LOGS_KEY, ...rawLogs); 
-        console.log("Reloaded raw logs from Tetra");
+    try {
+        const rawLogs = await redisClient.lrange(TETRA, 0, -1);
+        await redisClient.del(RAW_LOGS_KEY);
+
+        if (rawLogs.length > 0) {
+            await redisClient.rpush(RAW_LOGS_KEY, ...rawLogs);
+            console.log("Reloaded raw logs from Tetra");
+        }
+
+        res.json({ message: "Raw logs reloaded" }); // Send a JSON response
+    } catch (err) {
+        console.error("Error reloading raw logs:", err);
+        res.status(500).send("Error reloading raw logs"); // Send error response
     }
 });
 
