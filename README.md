@@ -5,6 +5,15 @@
 
 For high-res: [LighteningSTIXViz_KubernetesStormcenter.mp4](https://github.com/k8sstormcenter/cti-stix-visualization/LighteningSTIXViz_KubernetesStormcenter.mp4) 
 
+
+## Using the stixviz component in the Kubernetes Stormcenter
+It gets automatically deployed with `make honey-up` , if you d like to individually deploy it using the main `honeycluster repo` type
+```
+make stixviz
+```
+or grab the [lightening-rod/cti-stix-visualizer-deployment.yaml](https://github.com/k8sstormcenter/honeycluster/blob/main/lightening-rod/cti-stix-visualizer-deployment.yaml) . It uses the image that is built on this repo as artefact `ghcr.io/k8sstormcenter/cti-stix-visualizer`
+
+
 I m very grateful to the original maintainers and below here is the original Readme.
 # cti-stix-visualization
 
