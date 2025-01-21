@@ -1,6 +1,6 @@
 # Visualize STIX bundles from the stormcenter-Redis directly
 
-<img width="688" alt="Screenshot 2024-10-30 at 23 46 19" src="https://github.com/user-attachments/assets/d261e3cf-4dc6-4aa7-94a6-4a73767d3c5c">
+![LighteningSTIXViz_KubernetesStormcenter](https://github.com/user-attachments/assets/4a79bf9d-a4f5-4da3-8dca-30e9ddad0c13)
 
 
 I m very grateful to the original maintainers and below here is the original Readme.
