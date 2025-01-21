@@ -1,8 +1,9 @@
-# Visualize STIX bundles from the stormcenter-Redis directly
+# Convert, analyse and Visualize STIX bundles from the Stormcenter Database directly
 
 ![LighteningSTIXViz_KubernetesStormcenter.mp4](https://github.com/k8sstormcenter/cti-stix-visualization/LighteningSTIXViz_KubernetesStormcenter.mp4)
+![LighteningSTIXViz_KubernetesStormcenter](https://github.com/user-attachments/assets/eda0ba62-8716-4bee-bfc0-6b3625eaabfc)
 
-![LighteningSTIXViz_KubernetesStormcenter](https://github.com/user-attachments/assets/4a79bf9d-a4f5-4da3-8dca-30e9ddad0c13)
+
 
 
 I m very grateful to the original maintainers and below here is the original Readme.
