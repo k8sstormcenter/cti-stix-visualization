@@ -1,5 +1,7 @@
 # Visualize STIX bundles from the stormcenter-Redis directly
 
+<video src="output.mp4" controls width="640"></video>  
+
 ![LighteningSTIXViz_KubernetesStormcenter](https://github.com/user-attachments/assets/4a79bf9d-a4f5-4da3-8dca-30e9ddad0c13)
 
 
