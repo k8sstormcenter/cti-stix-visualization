@@ -19,7 +19,7 @@ require.config({
 
 const ACTIVE_LOGS_KEY = 'active_logs';
 const RAW_LOGS_KEY = 'raw_logs';
-const backendUrl = 'http://localhost:3000';
+const backendUrl = 'http://localhost:3000'; //TODO: unhardcode this
 const stixdedup = 'tetrastix';
 const stixindiv = 'tetra_bundle';
 let logsPerPage = 5;
@@ -494,16 +494,36 @@ async function dropLog(ev) {
     displayActiveLogs();
 }
 
+async function displayTransformedLogs(page = 1, perPage = 5) { 
+    try {
+
+        const keys = await getRedisKeys(selectedRedisTable); 
+
+        const startIndex = (page - 1) * perPage;
+        const endIndex = Math.min(startIndex + perPage - 1, keys.length - 1);
+        const keysToDisplay = keys.slice(startIndex, endIndex + 1);
+
+
+        const transformedLogsContainer = document.getElementById('transformed-logs-container');
+
+        // TODO - Display some of the transformed logs to show the user
+
+    } catch (error) {
+        console.error("Error displaying transformed logs:", error);
+    }
+}
+
 async function transformToStix() {
     let rediskey =ACTIVE_LOGS_KEY ;
     rediskey      = document.getElementById('redisKey').value;
     try {
         await fetch(`${backendUrl}/stix-transform?queue=${rediskey}`);
-        displayTransformedLogs();
+        await displayTransformedLogs();
     } catch (error) {
         console.error("Error transforming logs:", error);
     }
 }
+
 
 document.getElementById('TransformToStix').addEventListener('click', async () => {
     await transformToStix();
