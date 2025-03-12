@@ -51,8 +51,8 @@ jobs:
       - name: Build and push 
         uses: docker/build-push-action@v6
         with:
-          context: ./traces/kubehound-verify/attacks
-          file: ./traces/kubehound-verify/attacks/CE_NSENTER_Dockerfile
+          context: .
+          file: Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
