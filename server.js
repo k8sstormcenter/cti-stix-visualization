@@ -10,14 +10,16 @@ const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017'; // Repl
 const dbName = process.env.MONGODB_DB_NAME || 'patterns'; // Replace with your database name
 const mongoClient = new MongoClient(mongoURI);
 let db;
-mongoClient.connect(err => {
-  if (err) {
-    console.error('Failed to connect to MongoDB:', err);
-  } else {
+mongoClient.connect()
+  .then(() => {
     db = mongoClient.db(dbName);
+    mongoConnected = true; // Set the flag to true on successful connection
     console.log('Connected to MongoDB');
-  }
-});
+  })
+  .catch(err => {
+    console.error('Failed to connect to MongoDB:', err);
+    console.error('Continuing without MongoDB support.');
+  });
 
 const app = express();
 app.use(express.json());
